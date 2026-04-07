@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HoraService — Calculadora de Servicios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d0f;
+  --surface: #16161a;
+  --border: #2a2a32;
+  --accent: #e8ff47;
+  --accent2: #47c8ff;
+  --text: #e8e8f0;
+  --muted: #6b6b7e;
+  --danger: #ff4f4f;
+  --success: #47ffb2;
+  --mono: 'Space Mono', monospace;
+  --sans: 'Syne', sans-serif;
+  --radius: 6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+/* ─── HEADER ─── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.logo {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.logo span { color: var(--accent); }
+.logo-dot {
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+nav { display: flex; gap: 0.25rem; }
+.tab {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.tab:hover { color: var(--text); border-color: var(--border); }
+.tab.active { background: var(--surface); color: var(--accent); border-color: var(--border); }
+
+/* ─── LAYOUT ─── */
+main { display: grid; padding: 2rem; gap: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+/* ─── PANELS ─── */
+.panel { display: none; }
+.panel.active { display: contents; }
+
+/* ─── CALCULADORA ─── */
+.calc-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.5rem;
+  align-items: start;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.card-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ─── SELECTOR DE SERVICIO ─── */
+.categoria-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.5rem 0 0.35rem;
+}
+.servicio-btn {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--sans);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.15s;
+  margin-bottom: 0.4rem;
+}
+.servicio-btn:hover { border-color: var(--accent); background: rgba(232,255,71,0.04); }
+.servicio-btn.selected { border-color: var(--accent); background: rgba(232,255,71,0.08); }
+.servicio-nombre { font-weight: 600; font-size: 0.9rem; }
+.servicio-meta { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+.servicio-btn.selected .servicio-meta { color: var(--accent); }
+
+/* ─── FORMULARIO CALC ─── */
+.field { margin-bottom: 1rem; }
+label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 0.4rem; letter-spacing: 0.05em; }
+input[type="text"], input[type="number"], select, textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.65rem 0.85rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent2); }
+textarea { resize: vertical; min-height: 60px; }
+select option { background: var(--surface); }
+
+.btn {
+  padding: 0.7rem 1.25rem;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+  letter-spacing: 0.02em;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #0d0d0f;
+  width: 100%;
+}
+.btn-primary:hover { background: #d4eb00; transform: translateY(-1px); }
+.btn-danger { background: rgba(255,79,79,0.15); color: var(--danger); border: 1px solid var(--danger); }
+.btn-sm { padding: 0.4rem 0.75rem; font-size: 0.78rem; }
+.btn-ghost { background: none; border: 1px solid var(--border); color: var(--muted); }
+.btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+/* ─── RESULTADO ─── */
+#resultado { display: none; margin-top: 1rem; }
+.resultado-card {
+  background: rgba(232,255,71,0.05);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+.resultado-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 0.85rem;
+}
+.resultado-row:last-child { border-bottom: none; }
+.resultado-row .label { color: var(--muted); }
+.resultado-row .val { font-family: var(--mono); font-weight: 700; }
+.resultado-total {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--accent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.resultado-total .label { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.resultado-total .val { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+.advertencia {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  background: rgba(255,79,79,0.1);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  color: var(--danger);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.km-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.km-ok { background: rgba(71,255,178,0.15); color: var(--success); }
+.km-warn { background: rgba(255,79,79,0.15); color: var(--danger); }
+
+/* ─── PANEL SERVICIOS ─── */
+.servicios-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+.servicios-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.servicio-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  transition: border-color 0.15s;
+}
+.servicio-item:hover { border-color: var(--border); }
+.servicio-info { flex: 1; min-width: 0; }
+.servicio-item-nombre { font-weight: 600; font-size: 0.95rem; }
+.servicio-item-cat {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent2);
+  margin-bottom: 0.2rem;
+}
+.servicio-item-desc { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
+.servicio-item-vals { display: flex; gap: 1rem; align-items: center; flex-shrink: 0; }
+.val-chip {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+}
+.actions { display: flex; gap: 0.4rem; }
+
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+/* ─── CONFIG ─── */
+.config-layout { max-width: 480px; }
+
+/* ─── LOADER ─── */
+.loader {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── TOAST ─── */
+#toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.85rem;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.25s;
+  z-index: 100;
+  pointer-events: none;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.ok { border-color: var(--success); color: var(--success); }
+#toast.err { border-color: var(--danger); color: var(--danger); }
+
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+/* ─── AUTOCOMPLETE ─── */
+.autocomplete-list {
+  position: absolute;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 50;
+  display: none;
+}
+.autocomplete-list.show { display: block; }
+.autocomplete-item {
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background: rgba(232,255,71,0.1); }
+.autocomplete-item span { color: var(--muted); font-size: 0.75rem; }
+.field { position: relative; margin-bottom: 1rem; }
+
+/* ─── PRESUPUESTO ─── */
+.presupuesto-layout { display: grid; gap: 1rem; }
+.presupuesto-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr 80px 1fr 80px 100px;
+  gap: 1px;
+  background: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.presupuesto-header {
+  background: var(--bg);
+  padding: 0.75rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+.presupuesto-body { grid-column: 1 / -1; }
+.presupuesto-row {
+  display: contents;
+}
+.presupuesto-row > div {
+  background: var(--surface);
+  padding: 0.5rem;
+  font-size: 0.85rem;
+}
+.presupuesto-row select,
+.presupuesto-row input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 0.4rem;
+  font-size: 0.85rem;
+}
+.presupuesto-row .destino-cell { position: relative; }
+.presupuesto-row .btn-eliminar {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.2rem 0.5rem;
+}
+.presupuesto-row .btn-eliminar:hover { color: #ff7f7f; }
+.presupuesto-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(232,255,71,0.1);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  margin-top: 1rem;
+}
+.presupuesto-total span:first-child {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.presupuesto-total span:last-child {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.sin-costos .presupuesto-header:nth-child(6),
+.sin-costos .presupuesto-row > *:nth-child(6) { display: none; }
+.sin-costos .presupuesto-grid { grid-template-columns: 180px 1fr 80px 1fr 80px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-dot"></span>
+    Hora<span>Service</span>
+  </div>
+  <nav>
+    <button class="tab active" onclick="switchTab('calc')">Calculadora</button>
+    <button class="tab" onclick="switchTab('presupuesto')">Presupuesto</button>
+    <button class="tab" onclick="switchTab('servicios')">Servicios</button>
+    <button class="tab" onclick="switchTab('config')">Configuración</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ══════════ CALCULADORA ══════════ -->
+<div id="panel-calc" class="panel active">
+  <div class="calc-layout">
+
+    <!-- Selector de servicio -->
+    <div class="card">
+      <div class="card-title">Seleccionar servicio</div>
+      <div id="servicios-selector">
+        <div class="empty-state">No hay servicios cargados.<br>Andá a <strong>Servicios</strong> y agregá uno.</div>
+      </div>
+    </div>
+
+    <!-- Formulario + resultado -->
+    <div>
+      <div class="card">
+        <div class="card-title">Parámetros del trabajo</div>
+
+        <div class="field">
+          <label>Dirección de destino</label>
+          <input type="text" id="destino" placeholder="Ej: Av. Corrientes 1234, CABA" autocomplete="off">
+          <div id="autocomplete-list" class="autocomplete-list"></div>
+        </div>
+        <div class="field">
+          <label>Horas adicionales (sobre el mínimo)</label>
+          <input type="number" id="horas-extra" value="0" min="0" step="0.5">
+        </div>
+
+        <button class="btn btn-primary" onclick="calcular()">
+          <span id="calc-btn-text">Calcular presupuesto</span>
+        </button>
+
+        <div id="resultado">
+          <div class="resultado-card">
+            <div class="card-title" style="margin-bottom:0.75rem">Desglose</div>
+            <div id="resultado-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ SERVICIOS ══════════ -->
+<div id="panel-servicios" class="panel">
+  <div class="servicios-layout">
+
+    <div>
+      <div class="card-title" style="margin-bottom:1rem">Servicios registrados</div>
+      <div id="servicios-list"></div>
+    </div>
+
+    <div class="card" id="form-servicio-card">
+      <div class="card-title" id="form-servicio-title">Nuevo servicio</div>
+
+      <div class="field">
+        <label>Nombre</label>
+        <input type="text" id="s-nombre" placeholder="Ej: Formateo + instalación">
+      </div>
+      <div class="field">
+        <label>Categoría</label>
+        <input type="text" id="s-categoria" placeholder="Ej: Software, Hardware, Red">
+      </div>
+      <div class="field">
+        <label>Descripción</label>
+        <textarea id="s-descripcion" placeholder="Qué incluye el servicio..."></textarea>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>Valor por hora ($)</label>
+          <input type="number" id="s-valor-hora" placeholder="0" min="0">
+        </div>
+        <div class="field">
+          <label>Horas mínimas</label>
+          <input type="number" id="s-horas-min" placeholder="1" min="0.5" step="0.5" value="1">
+        </div>
+      </div>
+
+      <div style="display:flex; gap:0.5rem; margin-top:0.5rem">
+        <button class="btn btn-primary" onclick="guardarServicio()" style="flex:1">Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelarEdicion()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ CONFIG ══════════ -->
+<div id="panel-config" class="panel">
+  <div class="config-layout">
+    <div class="card">
+      <div class="card-title">Configuración general</div>
+
+      <div class="field">
+        <label>Dirección de residencia (punto de partida)</label>
+        <input type="text" id="c-residencia" placeholder="Ej: Pte. Illia 1234, San Justo, Pcia de Bs As">
+      </div>
+      <div class="field">
+        <label>Recargo por km ($)</label>
+        <input type="number" id="c-recargo-km" placeholder="0" min="0" step="100">
+      </div>
+
+      <button class="btn btn-primary" onclick="guardarConfig()">Guardar configuración</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PRESUPUESTO ══════════ -->
+<div id="panel-presupuesto" class="panel">
+  <div class="presupuesto-layout">
+    <div class="card" style="grid-column: 1 / -1;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <div class="card-title" style="margin-bottom:0;">Presupuesto</div>
+        <div style="display:flex; gap:1rem; align-items:center;">
+          <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+            <input type="checkbox" id="mostrar-costos" checked>
+            Mostrar costos
+          </label>
+          <button class="btn btn-ghost btn-sm" onclick="nuevaLinea()">+ Agregar línea</button>
+        </div>
+      </div>
+      <div class="presupuesto-grid">
+        <div class="presupuesto-header">Servicio</div>
+        <div class="presupuesto-header">Descripción</div>
+        <div class="presupuesto-header">Horas</div>
+        <div class="presupuesto-header">Destino</div>
+        <div class="presupuesto-header">Distancia</div>
+        <div class="presupuesto-header">Subtotal</div>
+        <div id="presupuesto-body" class="presupuesto-body"></div>
+      </div>
+      <div id="presupuesto-total" class="presupuesto-total">
+        <span>TOTAL</span>
+        <span id="presupuesto-total-val">$0</span>
+      </div>
+      <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+        <button class="btn btn-primary" onclick="calcularPresupuesto()">Calcular</button>
+        <button class="btn btn-ghost" onclick="imprimirPresupuesto()">Imprimir / PDF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+let servicioSeleccionado = null;
+let editandoId = null;
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'calc') cargarSelector();
+  if (tab === 'servicios') cargarServiciosList();
+  if (tab === 'config') cargarConfig();
+  if (tab === 'presupuesto' && !serviciosCache.length) cargarServiciosParaPresupuesto();
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg, tipo = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + tipo;
+  setTimeout(() => t.className = '', 2500);
+}
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+async function cargarConfig() {
+  const r = await fetch('/api/config');
+  const d = await r.json();
+  document.getElementById('c-residencia').value = d.residencia || '';
+  document.getElementById('c-recargo-km').value = d.recargo_por_km || 0;
+}
+
+async function guardarConfig() {
+  const payload = {
+    residencia: document.getElementById('c-residencia').value.trim(),
+    recargo_por_km: document.getElementById('c-recargo-km').value || 0
+  };
+  await fetch('/api/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  toast('Configuración guardada');
+}
+
+// ─── SERVICIOS ────────────────────────────────────────────────────────────────
+async function cargarServiciosList() {
+  const r = await fetch('/api/servicios');
+  const servicios = await r.json();
+  const el = document.getElementById('servicios-list');
+
+  if (!servicios.length) {
+    el.innerHTML = '<div class="empty-state">No hay servicios todavía.</div>';
+    return;
+  }
+
+  el.innerHTML = servicios.map(s => `
+    <div class="servicio-item">
+      <div class="servicio-info">
+        <div class="servicio-item-cat">${s.categoria}</div>
+        <div class="servicio-item-nombre">${s.nombre}</div>
+        ${s.descripcion ? `<div class="servicio-item-desc">${s.descripcion}</div>` : ''}
+      </div>
+      <div class="servicio-item-vals">
+        <span class="val-chip">$${s.valor_hora}/h</span>
+        <span class="val-chip">mín ${s.horas_minimas}h</span>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm" onclick="editarServicio(${s.id})">Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarServicio(${s.id})">✕</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function cargarSelector() {
+  const r = await fetch('/api/servicios');
+  const servicios = await r.json();
+  const el = document.getElementById('servicios-selector');
+
+  if (!servicios.length) {
+    el.innerHTML = '<div class="empty-state">No hay servicios cargados.<br>Andá a <strong>Servicios</strong> y agregá uno.</div>';
+    return;
+  }
+
+  // Agrupar por categoría
+  const cats = {};
+  servicios.forEach(s => {
+    if (!cats[s.categoria]) cats[s.categoria] = [];
+    cats[s.categoria].push(s);
+  });
+
+  el.innerHTML = Object.entries(cats).map(([cat, lista]) => `
+    <div class="categoria-label">${cat}</div>
+    ${lista.map(s => `
+      <button class="servicio-btn ${servicioSeleccionado?.id === s.id ? 'selected' : ''}"
+              data-id="${s.id}">
+        <div>
+          <div class="servicio-nombre">${s.nombre}</div>
+          ${s.descripcion ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:0.2rem">${s.descripcion}</div>` : ''}
+        </div>
+        <div class="servicio-meta">$${s.valor_hora}/h · mín ${s.horas_minimas}h</div>
+      </button>
+    `).join('')}
+  `).join('');
+
+  document.querySelectorAll('.servicio-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = parseInt(this.dataset.id);
+      const servicio = servicios.find(s => s.id === id);
+      if (servicio) {
+        servicioSeleccionado = servicio;
+        cargarSelector();
+        document.getElementById('resultado').style.display = 'none';
+      }
+    });
+  });
+}
+
+async function guardarServicio() {
+  const payload = {
+    nombre: document.getElementById('s-nombre').value.trim(),
+    categoria: document.getElementById('s-categoria').value.trim(),
+    descripcion: document.getElementById('s-descripcion').value.trim(),
+    valor_hora: document.getElementById('s-valor-hora').value,
+    horas_minimas: document.getElementById('s-horas-min').value
+  };
+  if (!payload.nombre || !payload.categoria || !payload.valor_hora) {
+    toast('Completá nombre, categoría y valor/hora', 'err');
+    return;
+  }
+
+  const url = editandoId ? `/api/servicios/${editandoId}` : '/api/servicios';
+  const method = editandoId ? 'PUT' : 'POST';
+  await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+
+  toast(editandoId ? 'Servicio actualizado' : 'Servicio creado');
+  cancelarEdicion();
+  cargarServiciosList();
+}
+
+function editarServicio(id) {
+  fetch('/api/servicios').then(r => r.json()).then(lista => {
+    const s = lista.find(x => x.id === id);
+    if (!s) return;
+    editandoId = id;
+    document.getElementById('s-nombre').value = s.nombre;
+    document.getElementById('s-categoria').value = s.categoria;
+    document.getElementById('s-descripcion').value = s.descripcion;
+    document.getElementById('s-valor-hora').value = s.valor_hora;
+    document.getElementById('s-horas-min').value = s.horas_minimas;
+    document.getElementById('form-servicio-title').textContent = 'Editar servicio';
+  });
+}
+
+function cancelarEdicion() {
+  editandoId = null;
+  ['s-nombre','s-categoria','s-descripcion','s-valor-hora'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('s-horas-min').value = 1;
+  document.getElementById('form-servicio-title').textContent = 'Nuevo servicio';
+}
+
+async function eliminarServicio(id) {
+  if (!confirm('¿Eliminar este servicio?')) return;
+  await fetch(`/api/servicios/${id}`, { method: 'DELETE' });
+  toast('Servicio eliminado');
+  cargarServiciosList();
+}
+
+// ─── CALCULADORA ──────────────────────────────────────────────────────────────
+async function calcular() {
+  if (!servicioSeleccionado) { toast('Seleccioná un servicio primero', 'err'); return; }
+  const destino = document.getElementById('destino').value.trim();
+  if (!destino) { toast('Ingresá la dirección de destino', 'err'); return; }
+
+  const btnText = document.getElementById('calc-btn-text');
+  btnText.innerHTML = '<span class="loader"></span>';
+
+  try {
+    const r = await fetch('/api/calcular', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        servicio_id: servicioSeleccionado.id,
+        destino,
+        horas_extra: document.getElementById('horas-extra').value || 0
+      })
+    });
+    const d = await r.json();
+    if (d.error) { toast(d.error, 'err'); return; }
+    mostrarResultado(d);
+  } catch(e) {
+    toast('Error de conexión', 'err');
+  } finally {
+    btnText.textContent = 'Calcular presupuesto';
+  }
+}
+
+function mostrarResultado(d) {
+  const km = d.distancia_km;
+  const kmBadge = km !== null
+    ? `<span class="km-badge ${km > 30 ? 'km-warn' : 'km-ok'}">${km > 30 ? '⚠' : '✓'} ${km} km</span>`
+    : '<span style="color:var(--muted);font-size:0.75rem">—</span>';
+
+  let html = `
+    <div class="resultado-row">
+      <span class="label">Servicio</span>
+      <span class="val">${d.servicio.nombre}</span>
+    </div>
+    <div class="resultado-row">
+      <span class="label">Horas cobradas</span>
+      <span class="val">${d.horas_cobradas}h</span>
+    </div>
+    <div class="resultado-row">
+      <span class="label">Costo por hora</span>
+      <span class="val">$${d.servicio.valor_hora.toLocaleString('es-AR')}</span>
+    </div>
+    <div class="resultado-row">
+      <span class="label">Subtotal mano de obra</span>
+      <span class="val">$${d.costo_base.toLocaleString('es-AR')}</span>
+    </div>
+    <div class="resultado-row">
+      <span class="label">Distancia al destino</span>
+      <span class="val">${kmBadge}</span>
+    </div>
+  `;
+
+  if (d.recargo_distancia > 0) {
+    html += `
+      <div class="resultado-row">
+        <span class="label">Recargo por distancia</span>
+        <span class="val" style="color:var(--accent2)">+$${d.recargo_distancia.toLocaleString('es-AR')}</span>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="resultado-total">
+      <span class="label">TOTAL</span>
+      <span class="val">$${d.costo_total.toLocaleString('es-AR')}</span>
+    </div>
+  `;
+
+  if (d.advertencia) {
+    html += `<div class="advertencia">⚠ ${d.advertencia}</div>`;
+  }
+
+  document.getElementById('resultado-body').innerHTML = html;
+  document.getElementById('resultado').style.display = 'block';
+}
+
+// ─── AUTOCOMPLETE DIRECCIONES ───────────────────────────────────────────────────
+let autocompleteTimeout = null;
+const destinoInput = document.getElementById('destino');
+const autocompleteList = document.getElementById('autocomplete-list');
+
+destinoInput.addEventListener('input', function() {
+  const query = this.value.trim();
+  if (query.length < 3) {
+    autocompleteList.classList.remove('show');
+    return;
+  }
+  
+  clearTimeout(autocompleteTimeout);
+  autocompleteTimeout = setTimeout(() => buscarDirecciones(query), 300);
+});
+
+document.addEventListener('click', function(e) {
+  if (!destinoInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+    autocompleteList.classList.remove('show');
+  }
+});
+
+async function buscarDirecciones(query) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=ar`, {
+      headers: { 'User-Agent': 'HoraService/1.0' }
+    });
+    const data = await res.json();
+    
+    if (!data.length) {
+      autocompleteList.classList.remove('show');
+      return;
+    }
+    
+    autocompleteList.innerHTML = data.map(d => `
+      <div class="autocomplete-item" onclick="seleccionarDireccion('${d.display_name.replace(/'/g, "\\'")}')">
+        <div>${d.display_name}</div>
+      </div>
+    `).join('');
+    autocompleteList.classList.add('show');
+  } catch(e) {
+    autocompleteList.classList.remove('show');
+  }
+}
+
+function seleccionarDireccion(dir) {
+  destinoInput.value = dir;
+  autocompleteList.classList.remove('show');
+}
+
+// ─── PRESUPUESTO ───────────────────────────────────────────────────────────────
+let presupuestoLineas = [];
+let serviciosCache = [];
+
+document.getElementById('mostrar-costos').addEventListener('change', function() {
+  document.querySelector('.presupuesto-grid').classList.toggle('sin-costos', !this.checked);
+});
+
+async function cargarServiciosParaPresupuesto() {
+  const r = await fetch('/api/servicios');
+  serviciosCache = await r.json();
+}
+
+async function nuevaLinea() {
+  if (!serviciosCache.length) {
+    await cargarServiciosParaPresupuesto();
+  }
+  
+  const id = Date.now();
+  const options = serviciosCache.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+  
+  const row = document.createElement('div');
+  row.className = 'presupuesto-row';
+  row.dataset.id = id;
+  row.innerHTML = `
+    <div><select class="servicio-select" onchange="actualizarFila('${id}')">${options}</select></div>
+    <div><input type="text" class="desc-input" placeholder="Detalle del trabajo"></div>
+    <div><input type="number" class="horas-input" value="1" min="0.5" step="0.5" onchange="actualizarFila('${id}')"></div>
+    <div class="destino-cell"><input type="text" class="destino-input" placeholder="Dirección" oninput="autocompleteFila(this, '${id}')"></div>
+    <div><span class="distancia-cell">—</span></div>
+    <div><span class="subtotal-cell">$0</span></div>
+  `;
+  document.getElementById('presupuesto-body').appendChild(row);
+  presupuestoLineas.push({ id, servicioId: null, horas: 1, destino: '', distancia: null, subtotal: 0 });
+  actualizarFila(id);
+}
+
+function actualizarFila(id) {
+  const row = document.querySelector(`.presupuesto-row[data-id="${id}"]`);
+  if (!row) return;
+  
+  const servicioId = parseInt(row.querySelector('.servicio-select').value);
+  const horas = parseFloat(row.querySelector('.horas-input').value) || 1;
+  const destino = row.querySelector('.destino-input').value;
+  
+  const idx = presupuestoLineas.findIndex(l => l.id === id);
+  if (idx > -1) {
+    presupuestoLineas[idx] = { ...presupuestoLineas[idx], servicioId, horas, destino };
+  }
+}
+
+function eliminarLinea(id) {
+  document.querySelector(`.presupuesto-row[data-id="${id}"]`)?.remove();
+  presupuestoLineas = presupuestoLineas.filter(l => l.id !== id);
+  calcularTotalPresupuesto();
+}
+
+function autocompleteFila(input, id) {
+  const query = input.value.trim();
+  if (query.length < 3) return;
+  
+  clearTimeout(window._autocompleteTimeout);
+  window._autocompleteTimeout = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=3&countrycodes=ar`, {
+        headers: { 'User-Agent': 'HoraService/1.0' }
+      });
+      const data = await res.json();
+      if (data.length) {
+        input.value = data[0].display_name;
+        actualizarFila(id);
+      }
+    } catch(e) {}
+  }, 300);
+}
+
+async function calcularPresupuesto() {
+  if (!serviciosCache.length) await cargarServiciosParaPresupuesto();
+  
+  const configRes = await fetch('/api/config');
+  const config = await configRes.json();
+  const residencia = config.residencia || '';
+  const recargoKm = parseFloat(config.recargo_por_km) || 0;
+  
+  let total = 0;
+  
+  for (const linea of presupuestoLineas) {
+    const row = document.querySelector(`.presupuesto-row[data-id="${linea.id}"]`);
+    if (!row) continue;
+    
+    const servicio = serviciosCache.find(s => s.id === linea.servicioId);
+    if (!servicio) continue;
+    
+    const horasCobradas = Math.max(linea.horas, servicio.horas_minimas);
+    const costoBase = horasCobradas * servicio.valor_hora;
+    let recargoDistancia = 0;
+    let distancia = null;
+    
+    if (residencia && linea.destino) {
+      try {
+        const geoOrigen = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(residencia)}&format=json&limit=1`, {
+          headers: { 'User-Agent': 'HoraService/1.0' }
+        }).then(r => r.json());
+        
+        const geoDestino = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(linea.destino)}&format=json&limit=1`, {
+          headers: { 'User-Agent': 'HoraService/1.0' }
+        }).then(r => r.json());
+        
+        if (geoOrigen.length && geoDestino.length) {
+          const d = await fetch(`https://router.project-osrm.org/route/v1/driving/${geoOrigen[0].lon},${geoOrigen[0].lat};${geoDestino[0].lon},${geoDestino[0].lat}?overview=false`).then(r => r.json());
+          if (d.code === 'Ok') {
+            distancia = Math.round(d.routes[0].distance / 1000);
+            recargoDistancia = distancia * recargoKm;
+          }
+        }
+      } catch(e) {}
+    }
+    
+    const subtotal = costoBase + recargoDistancia;
+    total += subtotal;
+    
+    row.querySelector('.distancia-cell').textContent = distancia ? `${distancia} km` : '—';
+    row.querySelector('.subtotal-cell').textContent = `$${subtotal.toLocaleString('es-AR')}`;
+  }
+  
+  document.getElementById('presupuesto-total-val').textContent = `$${total.toLocaleString('es-AR')}`;
+}
+
+function calcularTotalPresupuesto() {
+  let total = 0;
+  document.querySelectorAll('.subtotal-cell').forEach(el => {
+    const txt = el.textContent.replace('$', '').replace(/\./g, '').replace(',', '.');
+    total += parseFloat(txt) || 0;
+  });
+  document.getElementById('presupuesto-total-val').textContent = `$${total.toLocaleString('es-AR')}`;
+}
+
+function imprimirPresupuesto() {
+  const mostrarCostos = document.getElementById('mostrar-costos').checked;
+  let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Presupuesto</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 2rem; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+        th, td { border: 1px solid #ccc; padding: 0.75rem; text-align: left; }
+        th { background: #f5f5f5; }
+        .total { text-align: right; font-size: 1.2rem; font-weight: bold; }
+        .footer { text-align: center; color: #666; font-size: 0.9rem; margin-top: 2rem; }
+      </style>
+    </head>
+    <body>
+      <h1>Presupuesto de Servicios</h1>
+      <table>
+        <thead>
+          <tr>
+            <th>Servicio</th>
+            <th>Descripción</th>
+            <th>Horas</th>
+            <th>Destino</th>
+            ${mostrarCostos ? '<th>Subtotal</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  document.querySelectorAll('.presupuesto-row').forEach(row => {
+    const servicio = row.querySelector('.servicio-select option:checked')?.text || '';
+    const desc = row.querySelector('.desc-input').value || '—';
+    const horas = row.querySelector('.horas-input').value;
+    const destino = row.querySelector('.destino-input').value || '—';
+    const subtotal = row.querySelector('.subtotal-cell').textContent;
+    
+    html += `<tr>
+      <td>${servicio}</td>
+      <td>${desc}</td>
+      <td>${horas}</td>
+      <td>${destino}</td>
+      ${mostrarCostos ? `<td>${subtotal}</td>` : ''}
+    </tr>`;
+  });
+  
+  const total = document.getElementById('presupuesto-total-val').textContent;
+  html += `
+        </tbody>
+      </table>
+      ${mostrarCostos ? `<p class="total"><strong>Total: ${total}</strong></p>` : ''}
+      <div class="footer">
+        <p>Este presupuesto tiene validez por 30 días.</p>
+        <p>Horario de atención: Lun-Vie 9:00-18:00</p>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  win.print();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+cargarServiciosParaPresupuesto();
+</script>
+</body>
+</html>
