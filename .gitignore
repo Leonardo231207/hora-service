@@ -13,11 +13,18 @@ venv/
 ENV/
 env/
 
-# Base de datos SQLite
+# Base de datos SQLite (instance y root)
 *.db
 *.sqlite
 *.sqlite3
 horaservice.db
+instance/
+instance/*.db
+
+# Configuración sensible
+.env
+.env.local
+.env.*.local
 
 # IDEs
 .vscode/
@@ -32,7 +39,3 @@ Thumbs.db
 
 # Logs
 *.log
-
-# Entorno
-.env
-.env.local

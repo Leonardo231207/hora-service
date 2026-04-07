@@ -93,6 +93,13 @@ def set_config():
     db.session.commit()
     return jsonify({'ok': True})
 
+@app.route('/api/config-publica', methods=['GET'])
+def get_config_publica():
+    items = Configuracion.query.all()
+    config = {c.clave: c.valor for c in items}
+    config['residencia'] = ''
+    return jsonify(config)
+
 # --- Servicios ---
 
 @app.route('/api/servicios', methods=['GET'])
