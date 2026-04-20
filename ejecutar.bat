@@ -15,16 +15,16 @@ set "PYTHON_FOUND=0"
 python --version >nul 2>&1
 if not errorlevel 1 set "PYTHON_FOUND=1"
 
-if !PYTHON_FOUND!==0 (
+if !PYTHON_FOUND! EQU 0 (
     if exist "C:\Python313\python.exe" set "PYTHON_FOUND=1"
     if exist "C:\Python312\python.exe" set "PYTHON_FOUND=1"
 )
 
-if !PYTHON_FOUND!==0 (
+if !PYTHON_FOUND! EQU 0 (
     if exist "%APPDATA%\Python\Python313\python.exe" set "PYTHON_FOUND=1"
 )
 
-if !PYTHON_FOUND!==0 (
+if !PYTHON_FOUND! EQU 0 (
     echo [1/5] Python no detectado
     echo.
     echo Descargando Python...
@@ -90,5 +90,6 @@ echo   CTRL+C para detener
 echo ========================================
 echo.
 
-call venv\Scripts\python.exe application.py
+start http://127.0.0.1:5000
+start "" venv\Scripts\python.exe application.py
 pause

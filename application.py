@@ -2,11 +2,25 @@ from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import requests
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///horaservice.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+logging.basicConfig(level=logging.INFO)
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+file_handler = RotatingFileHandler('logs/app.log', maxBytes=1024000, backupCount=5)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [%(pathname)s:%(lineno)d]'
+))
+file_handler.setLevel(logging.INFO)
+app.logger.addHandler(file_handler)
+app.logger.setLevel(logging.INFO)
+app.logger.info('HoraService iniciado')
 
 # ─── MODELOS ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +45,25 @@ class Servicio(db.Model):
             'descripcion': self.descripcion,
             'valor_hora': self.valor_hora,
             'horas_minimas': self.horas_minimas
+        }
+
+
+class Repuesto(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(256), nullable=False)
+    categoria = db.Column(db.String(64), nullable=False)
+    descripcion = db.Column(db.Text)
+    precio = db.Column(db.Float, nullable=False)
+    link = db.Column(db.String(512))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'categoria': self.categoria,
+            'descripcion': self.descripcion,
+            'precio': self.precio,
+            'link': self.link
         }
 
 # ─── GEOCODING (Nominatim / OpenStreetMap) ────────────────────────────────────
@@ -140,10 +173,109 @@ def eliminar_servicio(sid):
     db.session.commit()
     return jsonify({'ok': True})
 
+# --- Repuestos ---
+
+@app.route('/api/repuestos', methods=['GET'])
+def get_repuestos():
+    repuestos = Repuesto.query.order_by(Repuesto.categoria, Repuesto.nombre).all()
+    return jsonify([r.to_dict() for r in repuestos])
+
+@app.route('/api/repuestos', methods=['POST'])
+def crear_repuesto():
+    d = request.json
+    r = Repuesto(
+        nombre=d['nombre'],
+        categoria=d['categoria'],
+        descripcion=d.get('descripcion', ''),
+        precio=float(d['precio']),
+        link=d.get('link', '')
+    )
+    db.session.add(r)
+    db.session.commit()
+    return jsonify(r.to_dict()), 201
+
+@app.route('/api/repuestos/<int:rid>', methods=['PUT'])
+def actualizar_repuesto(rid):
+    r = Repuesto.query.get_or_404(rid)
+    d = request.json
+    r.nombre = d.get('nombre', r.nombre)
+    r.categoria = d.get('categoria', r.categoria)
+    r.descripcion = d.get('descripcion', r.descripcion)
+    r.precio = float(d.get('precio', r.precio))
+    r.link = d.get('link', r.link)
+    db.session.commit()
+    return jsonify(r.to_dict())
+
+@app.route('/api/repuestos/<int:rid>', methods=['DELETE'])
+def eliminar_repuesto(rid):
+    r = Repuesto.query.get_or_404(rid)
+    db.session.delete(r)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+# --- Exportar/Importar ---
+
+@app.route('/api/exportar', methods=['GET'])
+def exportar_datos():
+    datos = {
+        'version': 1,
+        'fecha': db.func.current_timestamp(),
+        'servicios': [s.to_dict() for s in Servicio.query.all()],
+        'repuestos': [r.to_dict() for r in Repuesto.query.all()],
+        'config': {c.clave: c.valor for c in Configuracion.query.all()}
+    }
+    return jsonify(datos)
+
+@app.route('/api/importar', methods=['POST'])
+def importar_datos():
+    app.logger.info(f'Importar datos: {len(d.get("servicios", []))} servicios, {len(d.get("repuestos", []))} repuestos')
+    d = request.json
+    errores = []
+    
+    if 'servicios' in d:
+        for s in d['servicios']:
+            try:
+                nuevo = Servicio(
+                    nombre=s.get('nombre', ''),
+                    categoria=s.get('categoria', ''),
+                    descripcion=s.get('descripcion', ''),
+                    valor_hora=float(s.get('valor_hora', 0)),
+                    horas_minimas=float(s.get('horas_minimas', 1))
+                )
+                db.session.add(nuevo)
+            except:
+                errores.append(f"Error en servicio: {s.get('nombre')}")
+    
+    if 'repuestos' in d:
+        for r in d['repuestos']:
+            try:
+                nuevo = Repuesto(
+                    nombre=r.get('nombre', ''),
+                    categoria=r.get('categoria', ''),
+                    descripcion=r.get('descripcion', ''),
+                    precio=float(r.get('precio', 0)),
+                    link=r.get('link', '')
+                )
+                db.session.add(nuevo)
+            except:
+                errores.append(f"Error en repuesto: {r.get('nombre')}")
+    
+    if 'config' in d:
+        for clave, valor in d['config'].items():
+            c = Configuracion.query.filter_by(clave=clave).first()
+            if c:
+                c.valor = str(valor)
+            else:
+                db.session.add(Configuracion(clave=clave, valor=str(valor)))
+    
+    db.session.commit()
+    return jsonify({'ok': True, 'errores': errores})
+
 # --- Calculadora ---
 
 @app.route('/api/calcular', methods=['POST'])
 def calcular():
+    app.logger.info(f'Calculo solicitado: {request.json}')
     d = request.json
     servicio_id = d.get('servicio_id')
     destino = d.get('destino', '').strip()
@@ -193,6 +325,7 @@ def calcular():
 
 with app.app_context():
     db.create_all()
+    app.logger.info('DB creada/verificada')
     # Seed config por defecto si está vacía
     if not Configuracion.query.first():
         defaults = [
@@ -201,6 +334,15 @@ with app.app_context():
         ]
         db.session.add_all(defaults)
         db.session.commit()
+        app.logger.info('Configuracion por defecto creada')
+
+@app.route('/logs')
+def ver_logs():
+    if not os.path.exists('logs/app.log'):
+        return 'No hay logs'
+    with open('logs/app.log', 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    return '<pre>' + ''.join(lines[-100:]) + '</pre>'
 
 if __name__ == '__main__':
     app.run(debug=True)
