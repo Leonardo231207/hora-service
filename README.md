@@ -1,107 +1,62 @@
-# HoraService 🛠️
+# HoraService
 
-Calculadora de presupuestos para servicios técnicos freelance.  
-Calcula el costo total según tipo de servicio, horas trabajadas y distancia al cliente (usando OpenStreetMap, sin costo).
+Calculadora de presupuestos para servicios técnicos freelance.
+Calcula el costo total según servicio, horas trabajadas y distancia al cliente.
 
-## ¿Qué hace?
+## Quick Start
 
-- **Servicios configurables**: creás tus servicios con categoría, descripción, valor/hora y horas mínimas
-- **Cálculo de distancia real**: usa Nominatim (geocodificación) + OSRM (ruteo real por calles) — todo gratis, sin API key
-- **Recargo por km**: configurás un valor fijo por kilómetro que se suma automáticamente
-- **Advertencia por distancia**: si el destino está a más de 30 km, te avisa para que decidas si conviene
-- **Planilla de presupuesto**: armá presupuestos con múltiples servicios, calculá distancias y costos en lote
-- **Impresión/PDF**: generá un presupuesto limpio para enviar al cliente (con o sin precios)
+```cmd
+# Primera vez
+setup.bat
+
+# Uso diario
+iniciar.bat
+```
+
+Abrir en `http://127.0.0.1:5000`
+
+## Funciones
+
+- **Servicios**: creá servicios con categoría, descripción, valor/hora y horas mínimas
+- **Cálculo de distancia**: usa Nominatim + OSRM (sin API key, gratis)
+- **Recargo por km**: configurable, se suma automáticamente
+- **Presupuesto**: armá presupuestos con múltiples servicios y generá PDF para el cliente
+- **Backup**: exportá/importá tus datos en JSON
 
 ## Estructura
 
 ```
 hora-service/
-├── application.py      # Flask app + lógica de negocio
+├── application.py       # Flask app
+├── setup.bat           # Primera configuración
+├── iniciar.bat        # Iniciar app
 ├── requirements.txt
-├── ejecutar.bat       # Script para iniciar todo automáticamente (Windows)
 ├── templates/
-│   └── index.html     # UI completa (una sola página)
-├── .gitignore         # Excluye DB, venv, archivos sensibles
+│   └── index.html      # UI
+├── static/
+│   └── favicon.png    # Logo
 └── instance/
-    └── horaservice.db # SQLite (se crea automático)
+    └── horaservice.db # SQLite (auto)
 ```
-
-## Setup
-
-### Windows (con ejecutar.bat)
-
-```cmd
-cd hora-service
-ejecutar.bat
-```
-
-El script automáticamente:
-1. Crea el entorno virtual si no existe
-2. Instala las dependencias
-3. Crea la base de datos
-4. Levanta el servidor en http://127.0.0.1:5000
-
-### Manual
-
-```bash
-# Clonar / copiar el proyecto
-cd hora-service
-
-# Crear entorno virtual
-python -m venv venv
-
-# Activar
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Correr
-python application.py
-```
-
-Abrir en `http://localhost:5000`
 
 ## Primeros pasos
 
-1. Ir a **Configuración** → cargar tu domicilio (solo vos lo ves, no se expone) y el recargo por km
-2. Ir a **Servicios** → agregar tus tipos de servicio con precio/hora y mínimo de horas
-3. Ir a **Calculadora** → seleccionar servicio, ingresar la dirección del cliente → calcular
-4. Ir a **Presupuesto** → armá una planilla con varios servicios, destinatarios distintos, y generá el PDF
+1. **Config** → cargar tu domicilio y recargo por km
+2. **Servicios** → agregar tipos de servicio
+3. **Calculadora** → seleccionar servicio, ingresar dirección → calcular
+4. **Presupuesto** → armar planilla, generar PDF
+
+## Geolocalización
+
+| Servicio | Función |
+|---|---|
+| [Nominatim](https://nominatim.openstreetmap.org) | Dirección → coordenadas |
+| [OSRM](https://router.project-osrm.org) | Ruta real por calles |
+
+> Límite: 1 req/seg en Nominatim.
 
 ## Seguridad
 
-- La dirección de residencia se guarda localmente en la base de datos SQLite
-- La API pública (`/api/config-publica`) no devuelve la dirección — solo se usa internamente
-- El presupuesto enviado al cliente **no incluye la dirección de destino** (es solo para vos)
-- El `.gitignore` excluye: `instance/`, `venv/`, `.env`, archivos de IDE
-
-## Servicios de geolocalización usados
-
-| Servicio | Función | Límite |
-|---|---|---|
-| [Nominatim](https://nominatim.openstreetmap.org) | Convierte dirección → coordenadas | 1 req/seg (uso personal) |
-| [OSRM](https://router.project-osrm.org) | Calcula ruta real por calles | Sin límite estricto |
-
-> ⚠️ Nominatim pide uso razonable. Para volumen alto se puede hostear localmente o usar Photon.
-
-## Modelo de datos
-
-### `Configuracion` (clave-valor)
-- `residencia`: dirección de origen habitual (solo uso local, no se expone)
-- `recargo_por_km`: monto adicional por km de distancia
-
-### `Servicio`
-- `nombre`, `categoria`, `descripcion`
-- `valor_hora`: precio por hora de trabajo
-- `horas_minimas`: mínimo a cobrar (ej: 1.5 = nunca cobrás menos de 1h30)
-
-## Ideas para extender
-
-- [ ] Historial de presupuestos generados
-- [ ] Guardar/clonar presupuestos anteriores
-- [ ] Múltiples puntos de partida (si trabajás desde distintos lugares)
-- [ ] Modo oscuro/claro toggle
-- [ ] Auth básica si lo querés exponer en red local
-- [ ] Exportar a PDF real (no solo impresión del navegador)
+- La dirección de residencia solo se guarda localmente
+- Los presupuestos no exponen tu ubicación
+- `.gitignore` excluye: `instance/`, `venv/`, logs
