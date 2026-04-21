@@ -626,8 +626,8 @@ select option { background: var(--surface); }
       <div style="flex:1;border-left:1px solid var(--border);padding-left:1rem;">
         <div class="card-title" style="font-size:0.75rem;">Importar</div>
         <p style="color:var(--muted);font-size:0.8rem;margin-bottom:0.75rem;">Cargá datos desde un archivo JSON.</p>
-        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importarDatos(this)">
-        <button class="btn btn-ghost" onclick="document.getElementById('import-file').click()">Seleccionar archivo</button>
+        <input type="file" id="import-file" accept=".json">
+        <button class="btn btn-ghost" id="btn-importar">Seleccionar archivo</button>
       </div>
     </div>
   </div>
@@ -749,32 +749,39 @@ async function guardarConfig() {
 
 // ─── SERVICIOS ────────────────────────────────────────────────────────────────
 async function cargarServiciosList() {
-  const r = await fetch('/api/servicios');
-  const servicios = await r.json();
   const el = document.getElementById('servicios-list');
+  if (!el) return;
+  
+  try {
+    const r = await fetch('/api/servicios');
+    const servicios = await r.json();
 
-  if (!servicios.length) {
-    el.innerHTML = '<div class="empty-state">No hay servicios todavía.</div>';
-    return;
-  }
+    if (!servicios.length) {
+      el.innerHTML = '<div class="empty-state">No hay servicios todavía.</div>';
+      return;
+    }
 
-  el.innerHTML = servicios.map(s => `
-    <div class="servicio-item">
-      <div class="servicio-info">
-        <div class="servicio-item-cat">${s.categoria}</div>
-        <div class="servicio-item-nombre">${s.nombre}</div>
-        ${s.descripcion ? `<div class="servicio-item-desc">${s.descripcion}</div>` : ''}
-      </div>
-      <div class="servicio-item-vals">
-        <span class="val-chip">$${s.valor_hora}/h</span>
-        <span class="val-chip">mín ${s.horas_minimas}h</span>
-        <div class="actions">
-          <button class="btn btn-ghost btn-sm" onclick="editarServicio(${s.id})">Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="eliminarServicio(${s.id})">✕</button>
+    el.innerHTML = servicios.map(s => `
+      <div class="servicio-item">
+        <div class="servicio-info">
+          <div class="servicio-item-cat">${s.categoria}</div>
+          <div class="servicio-item-nombre">${s.nombre}</div>
+          ${s.descripcion ? `<div class="servicio-item-desc">${s.descripcion}</div>` : ''}
+        </div>
+        <div class="servicio-item-vals">
+          <span class="val-chip">$${s.valor_hora}/h</span>
+          <span class="val-chip">mín ${s.horas_minimas}h</span>
+          <div class="actions">
+            <button class="btn btn-ghost btn-sm" onclick="editarServicio(${s.id})">Editar</button>
+            <button class="btn btn-danger btn-sm" onclick="eliminarServicio(${s.id})">✕</button>
+          </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    `).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state">Error al cargar servicios</div>';
+    console.error('Error cargarServiciosList:', e);
+  }
 }
 
 async function cargarSelector() {
@@ -836,11 +843,18 @@ async function guardarServicio() {
 
   const url = editandoId ? `/api/servicios/${editandoId}` : '/api/servicios';
   const method = editandoId ? 'PUT' : 'POST';
-  await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+
+  if (!res.ok) {
+    const err = await res.json();
+    toast('Error: ' + (err.error || 'Unknown'), 'err');
+    return;
+  }
 
   toast(editandoId ? 'Servicio actualizado' : 'Servicio creado');
   cancelarEdicion();
   cargarServiciosList();
+  cargarSelector();
 }
 
 function editarServicio(id) {
@@ -850,10 +864,17 @@ function editarServicio(id) {
     editandoId = id;
     document.getElementById('s-nombre').value = s.nombre;
     document.getElementById('s-categoria').value = s.categoria;
-    document.getElementById('s-descripcion').value = s.descripcion;
+    document.getElementById('s-descripcion').value = s.descripcion || '';
     document.getElementById('s-valor-hora').value = s.valor_hora;
     document.getElementById('s-horas-min').value = s.horas_minimas;
     document.getElementById('form-servicio-title').textContent = 'Editar servicio';
+    // Cambiar al tab de servicios
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('panel-servicios').classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => {
+      if (t.textContent.includes('Servicios')) t.classList.add('active');
+    });
   });
 }
 
@@ -1026,6 +1047,7 @@ async function cargarRepuestosParaPresupuesto() {
 async function nuevaLinea(tipo) {
   if (!serviciosCache.length) await cargarServiciosParaPresupuesto();
   if (!repuestosCache.length) await cargarRepuestosParaPresupuesto();
+  console.log('repuestosCache:', repuestosCache);
   
   const id = Date.now();
   let options = '';
@@ -1053,10 +1075,10 @@ async function nuevaLinea(tipo) {
     `;
   } else {
     row.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--muted);">REPÜESTO</div>
+      <div style="display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--muted);">REPUESTO</div>
       <div><select class="item-select" onchange="actualizarFila('${id}')">${options}</select></div>
       <div><input type="number" class="cant-input" value="1" min="1" onchange="actualizarFila('${id}')"></div>
-      <div><input type="number" class="valor-input" value="0" min="0" onchange="actualizarFila('${id}')"></div>
+      <div><span class="valor-cell">$0</span></div>
       <div><span class="subtotal-cell">$0</span></div>
       <div><button class="btn-eliminar" onclick="eliminarLinea('${id}')" title="Eliminar">✕</button></div>
     `;
@@ -1073,41 +1095,36 @@ function actualizarFila(id) {
   
   const tipo = row.dataset.tipo;
   const select = row.querySelector('.item-select');
+  const selectedOption = select.options[select.selectedIndex];
   const cantidad = parseFloat(row.querySelector('.cant-input').value) || 1;
-  let valor = 0;
+  let valorUnitario = 0;
+  let subtotal = 0;
   
   if (select.value === 'manual') {
-    valor = parseFloat(row.querySelector('.valor-input').value) || 0;
-  } else if (select.selectedOption = select.options[select.selectedIndex]) {
-    valor = parseFloat(select.selectedOption.dataset.valor) || 0;
-    if (tipo === 'repuesto' && select.value !== 'manual') {
-      if (!row.querySelector('.valor-input')) {
-        const valorInput = document.createElement('input');
-        valorInput.type = 'number';
-        valorInput.className = 'valor-input';
-        valorInput.value = valor;
-        valorInput.min = 0;
-        valorInput.onchange = function() { actualizarFila(id); };
-        row.querySelector('.valor-cell').innerHTML = '';
-        row.querySelector('.valor-cell').appendChild(valorInput);
-      }
+    valorUnitario = parseFloat(row.querySelector('.valor-input')?.value) || 0;
+    subtotal = cantidad * valorUnitario;
+    row.querySelector('.valor-cell').innerHTML = `<span style="color:var(--muted)">manual</span>`;
+  } else if (selectedOption) {
+    const valorStr = selectedOption.getAttribute('data-valor') || selectedOption.dataset.valor;
+    valorUnitario = parseFloat(valorStr) || 0;
+    
+    if (tipo === 'servicio') {
+      const horasMin = parseFloat(selectedOption.getAttribute('data-min') || selectedOption.dataset.min) || 1;
+      const horasCobradas = Math.max(cantidad, horasMin);
+      subtotal = horasCobradas * valorUnitario;
+      row.querySelector('.valor-cell').innerHTML = `<span style="color:var(--accent2)">$${valorUnitario.toLocaleString('es-AR')}/h</span>`;
+    } else {
+      subtotal = cantidad * valorUnitario;
+      row.querySelector('.valor-cell').innerHTML = `<span>$${valorUnitario.toLocaleString('es-AR')}</span>`;
     }
   }
   
-  if (tipo === 'servicio' && select.selectedOption) {
-    const horasMin = parseFloat(select.selectedOption.dataset.min) || 1;
-    const horasCobradas = Math.max(cantidad, horasMin);
-    valor = horasCobradas * valor;
-  } else {
-    valor = cantidad * valor;
-  }
-  
-  const idx = presupuestoLineas.findIndex(l => l.id === id);
+  const idx = presupuestoLineas.findIndex(l => l.id == id);
   if (idx > -1) {
-    presupuestoLineas[idx] = { ...presupuestoLineas[idx], itemId: select.value, cantidad, valor };
+    presupuestoLineas[idx] = { ...presupuestoLineas[idx], itemId: select.value, cantidad, valor: subtotal };
   }
   
-  row.querySelector('.subtotal-cell').textContent = `$${valor.toLocaleString('es-AR')}`;
+  row.querySelector('.subtotal-cell').textContent = `$${subtotal.toLocaleString('es-AR')}`;
   calcularTotalPresupuesto();
 }
 
@@ -1186,15 +1203,24 @@ function imprimirPresupuesto() {
     let valor = '';
     if (valorCell) {
       const input = valorCell.querySelector('input');
-      valor = input ? input.value : valorCell.textContent.replace('$', '');
+      valor = input ? input.value : valorCell.textContent.replace('$', '').replace('/h', '').trim();
     }
     const subtotal = row.querySelector('.subtotal-cell').textContent;
+    
+    let precCol = '';
+    if (mostrarCostos) {
+      if (tipo === 'repuesto') {
+        precCol = `<td class="prec-col">$${parseFloat(valor||0).toLocaleString('es-AR')}</td>`;
+      } else {
+        precCol = `<td class="prec-col">—</td>`;
+      }
+    }
     
     html += `<tr>
       <td class="tipo-col ${tipoClass}">${tipoLabel}</td>
       <td>${item}</td>
       <td class="cant-col">${cant}</td>
-      ${mostrarCostos ? `<td class="prec-col">$${parseFloat(valor||0).toLocaleString('es-AR')}</td><td class="subt-col">${subtotal}</td>` : ''}
+      ${precCol}<td class="subt-col">${subtotal}</td>
     </tr>`;
   });
   
@@ -1208,7 +1234,7 @@ function imprimirPresupuesto() {
         <span class="total-amount">${total}</span>
       </div>` : ''}
       <div class="footer">
-        <p>Gracias por confiar en nuestro servicio</p>
+        <p></p>
       </div>
     </body>
     </html>
@@ -1301,63 +1327,32 @@ async function eliminarRepuesto(id) {
 
 // ─── BACKUP ──────────────────────────────────────────────────────────────
 async function exportarDatos() {
-  const r = await fetch('/api/exportar');
-  const datos = await r.json();
-  
-  const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `horaservice-backup-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('Datos exportados');
-}
-
-async function importarDatos(input) {
-  const file = input.files[0];
-  if (!file) return;
-  
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    try {
-      const datos = JSON.parse(e.target.result);
-      const r = await fetch('/api/importar', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(datos)
-      });
-      const result = await r.json();
-      if (result.ok) {
-        toast('Datos importados correctamente');
-        cargarServiciosList();
-        cargarRepuestosList();
-      } else {
-        toast('Algunos errores: ' + result.errores.join(', '), 'err');
-      }
-    } catch(err) {
-      toast('Error al leer archivo', 'err');
-    }
-  };
-  reader.readAsText(file);
-  input.value = '';
-}
-
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-// Event listeners para checkboxes de costos
-document.getElementById('mostrar-costos').addEventListener('change', function() {
-  document.querySelector('.presupuesto-grid')?.classList.toggle('sin-costos', !this.checked);
-});
-
-// ─── LOGS ─────────────────────────────────────────────────────────────────────
-async function cargarLogs() {
   try {
-    const r = await fetch('/logs');
-    const text = await r.text();
-    document.getElementById('logs-content').textContent = text || 'No hay logs';
+    const r = await fetch('/api/exportar');
+    if (!r.ok) {
+      toast('Error al exportar', 'err');
+      return;
+    }
+    const datos = await r.json();
+    console.log('Datos exportados:', datos);
+    
+    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `horaservice-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Datos exportados');
   } catch(e) {
-    document.getElementById('logs-content').textContent = 'Error al cargar: ' + e.message;
+    console.error('Error exportar:', e);
+    toast('Error al exportar: ' + e.message, 'err');
   }
+}
+
+// Función legacy (no usada ya)
+async function importarDatos(input) {
+  console.log('legacy importarDatos called');
 }
 </script>
 </body>

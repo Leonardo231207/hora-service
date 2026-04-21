@@ -142,17 +142,24 @@ def get_servicios():
 
 @app.route('/api/servicios', methods=['POST'])
 def crear_servicio():
+    app.logger.info(f'POST /api/servicios - data: {request.json}')
     d = request.json
-    s = Servicio(
-        nombre=d['nombre'],
-        categoria=d['categoria'],
-        descripcion=d.get('descripcion', ''),
-        valor_hora=float(d['valor_hora']),
-        horas_minimas=float(d.get('horas_minimas', 1.0))
-    )
-    db.session.add(s)
-    db.session.commit()
-    return jsonify(s.to_dict()), 201
+    try:
+        s = Servicio(
+            nombre=d['nombre'],
+            categoria=d['categoria'],
+            descripcion=d.get('descripcion', ''),
+            valor_hora=float(d['valor_hora']),
+            horas_minimas=float(d.get('horas_minimas', 1.0))
+        )
+        db.session.add(s)
+        db.session.commit()
+        app.logger.info(f'Servicio creado: {s.id} - {s.nombre}')
+        return jsonify(s.to_dict()), 201
+    except Exception as e:
+        app.logger.error(f'Error al crear servicio: {e}')
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/servicios/<int:sid>', methods=['PUT'])
 def actualizar_servicio(sid):
@@ -217,13 +224,15 @@ def eliminar_repuesto(rid):
 
 @app.route('/api/exportar', methods=['GET'])
 def exportar_datos():
+    from datetime import datetime
     datos = {
         'version': 1,
-        'fecha': db.func.current_timestamp(),
+        'fecha': datetime.now().isoformat(),
         'servicios': [s.to_dict() for s in Servicio.query.all()],
         'repuestos': [r.to_dict() for r in Repuesto.query.all()],
         'config': {c.clave: c.valor for c in Configuracion.query.all()}
     }
+    app.logger.info(f'Exportando: {len(datos["servicios"])} servicios, {len(datos["repuestos"])} repuestos')
     return jsonify(datos)
 
 @app.route('/api/importar', methods=['POST'])
