@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HoraService — Calculadora de Servicios</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -425,49 +426,6 @@ select option { background: var(--surface); }
 .sin-costos .presupuesto-row > *:nth-child(6) { display: none; }
 .sin-costos .presupuesto-grid { grid-template-columns: 180px 1fr 80px 1fr 80px; }
 
-/* ─── PLANILLA ─── */
-.planilla-grid {
-  display: grid;
-  grid-template-columns: 120px 1fr 70px 100px 100px 100px;
-  gap: 1px;
-  background: var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.planilla-totales {
-  display: flex;
-  justify-content: flex-end;
-  gap: 2rem;
-  padding: 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-top: 1rem;
-}
-.totales-section {
-  text-align: right;
-}
-.totales-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  margin-bottom: 0.25rem;
-}
-.totales-val {
-  font-family: var(--mono);
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-.planilla-total .totales-val {
-  font-size: 1.4rem;
-  color: var(--accent);
-}
-.planilla-grid.sin-costos { grid-template-columns: 120px 1fr 70px 100px; }
-.planilla-grid.sin-costos > *:nth-child(5),
-.planilla-grid.sin-costos > *:nth-child(6) { display: none; }
-
 /* ─── REPÚESTOS ─── */
 .repuesto-item {
   background: var(--surface);
@@ -507,17 +465,15 @@ select option { background: var(--surface); }
 
 <header>
   <div class="logo">
-    <span class="logo-dot"></span>
+    <img src="/static/favicon.png" alt="Logo" style="width:28px;height:28px;margin-right:4px;">
     Hora<span>Service</span>
   </div>
   <nav>
     <button class="tab active" onclick="switchTab('calc')">Calculadora</button>
-    <button class="tab" onclick="switchTab('planilla')">Planilla</button>
     <button class="tab" onclick="switchTab('presupuesto')">Presupuesto</button>
     <button class="tab" onclick="switchTab('servicios')">Servicios</button>
     <button class="tab" onclick="switchTab('repuestos')">Repuestos</button>
     <button class="tab" onclick="switchTab('backup')">Backup</button>
-    <button class="tab" onclick="switchTab('logs')">Logs</button>
     <button class="tab" onclick="switchTab('config')">Config</button>
   </nav>
 </header>
@@ -708,52 +664,6 @@ select option { background: var(--surface); }
   </div>
 </div>
 
-<!-- ══════════ PLANILLA ══════════ -->
-<div id="panel-planilla" class="panel">
-  <div class="presupuesto-layout">
-    <div class="card" style="grid-column: 1 / -1;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <div class="card-title" style="margin-bottom:0;">Planilla de trabajo</div>
-        <div style="display:flex; gap:1rem; align-items:center;">
-          <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
-            <input type="checkbox" id="mostrar-costos" checked>
-            Mostrar costos
-          </label>
-          <button class="btn btn-ghost btn-sm" onclick="nuevaLineaPlanilla()">+ Agregar ítem</button>
-        </div>
-      </div>
-      <div class="planilla-grid">
-        <div class="presupuesto-header">Ítem</div>
-        <div class="presupuesto-header">Descripción</div>
-        <div class="presupuesto-header">Cantidad</div>
-        <div class="presupuesto-header">P.Unitario</div>
-        <div class="presupuesto-header">Subtotal</div>
-        <div class="presupuesto-header">Link</div>
-        <div id="planilla-body" class="presupuesto-body"></div>
-      </div>
-      <div class="planilla-totales">
-        <div class="totales-section">
-          <div class="totales-label">Mano de obra</div>
-          <div id="planilla-mano-obra" class="totales-val">$0</div>
-        </div>
-        <div class="totales-section">
-          <div class="totales-label">Repuestos</div>
-          <div id="planilla-repuestos" class="totales-val">$0</div>
-        </div>
-        <div class="totales-section planilla-total">
-          <div class="totales-label">TOTAL</div>
-          <div id="planilla-total-val" class="totales-val">$0</div>
-        </div>
-      </div>
-      <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-        <button class="btn btn-primary" onclick="calcularPlanilla()">Calcular</button>
-        <button class="btn btn-ghost" onclick="imprimirPlanilla()">Imprimir</button>
-        <button class="btn btn-ghost" onclick="limpiarPlanilla()">Limpiar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ══════════ PRESUPUESTO ══════════ -->
 <div id="panel-presupuesto" class="panel">
   <div class="presupuesto-layout">
@@ -807,7 +717,6 @@ function switchTab(tab) {
   if (tab === 'repuestos') cargarRepuestosList();
   if (tab === 'config') cargarConfig();
   if (tab === 'presupuesto' && !serviciosCache.length) cargarServiciosParaPresupuesto();
-  if (tab === 'planilla' && !repuestosCache.length) cargarRepuestosParaPlanilla();
   if (tab === 'logs') cargarLogs();
 }
 
@@ -1457,224 +1366,6 @@ async function eliminarRepuesto(id) {
   await fetch(`/api/repuestos/${id}`, { method: 'DELETE' });
   toast('Repuesto eliminado');
   cargarRepuestosList();
-}
-
-// ─── PLANILLA ────────────────────────────────────────────────────────────
-let planillaLineas = [];
-let repuestosCache = [];
-
-async function cargarRepuestosParaPlanilla() {
-  const r = await fetch('/api/repuestos');
-  repuestosCache = await r.json();
-}
-
-async function nuevaLineaPlanilla() {
-  if (!repuestosCache.length) {
-    await cargarRepuestosParaPlanilla();
-  }
-  
-  const id = Date.now();
-  const cats = {};
-  repuestosCache.forEach(rp => {
-    if (!cats[rp.categoria]) cats[rp.categoria] = [];
-    cats[rp.categoria].push(rp);
-  });
-  
-  let options = '<option value="">— Servicio técnico —</option>';
-  Object.entries(cats).forEach(([cat, lista]) => {
-    options += `<optgroup label="${cat}">`;
-    lista.forEach(rp => {
-      options += `<option value="${rp.id}" data-precio="${rp.precio}" data-link="${rp.link || ''}">${rp.nombre}</option>`;
-    });
-    options += '</optgroup>';
-  });
-  
-  const row = document.createElement('div');
-  row.className = 'presupuesto-row';
-  row.dataset.id = id;
-  row.innerHTML = `
-    <div><select class="planilla-item-select" onchange="actualizarFilaPlanilla('${id}')">${options}</select></div>
-    <div><input type="text" class="planilla-desc" placeholder="Detalle del ítem"></div>
-    <div><input type="number" class="planilla-cant" value="1" min="1" onchange="actualizarFilaPlanilla('${id}')"></div>
-    <div><input type="number" class="planilla-unitario" placeholder="0" onchange="actualizarFilaPlanilla('${id}')"></div>
-    <div><span class="planilla-subtotal">$0</span></div>
-    <div><input type="text" class="planilla-link" placeholder="https://..."></div>
-  `;
-  document.getElementById('planilla-body').appendChild(row);
-  planillaLineas.push({ id, tipo: '', itemId: null, desc: '', cant: 1, unitario: 0, link: '', subtotal: 0 });
-}
-
-function actualizarFilaPlanilla(id) {
-  const row = document.querySelector(`.presupuesto-row[data-id="${id}"]`);
-  if (!row) return;
-  
-  const select = row.querySelector('.planilla-item-select');
-  const desc = row.querySelector('.planilla-desc');
-  const cant = parseInt(row.querySelector('.planilla-cant').value) || 1;
-  const unitario = parseFloat(row.querySelector('.planilla-unitario').value) || 0;
-  const link = row.querySelector('.planilla-link').value;
-  
-  if (select.value) {
-    const option = select.options[select.selectedIndex];
-    const precio = parseFloat(option.dataset.precio) || 0;
-    const linkData = option.dataset.link || '';
-    if (!desc.value) desc.value = option.text;
-    if (!unitario) row.querySelector('.planilla-unitario').value = precio;
-    if (!link && linkData) row.querySelector('.planilla-link').value = linkData;
-  }
-  
-  const subtotal = cant * (parseFloat(row.querySelector('.planilla-unitario').value) || 0);
-  row.querySelector('.planilla-subtotal').textContent = `$${subtotal.toLocaleString('es-AR')}`;
-  
-  const idx = planillaLineas.findIndex(l => l.id === id);
-  if (idx > -1) {
-    planillaLineas[idx] = { 
-      id, 
-      tipo: select.options[select.selectedIndex]?.parentElement?.label || 'Servicio',
-      itemId: select.value || null,
-      desc: desc.value,
-      cant,
-      unitario: parseFloat(row.querySelector('.planilla-unitario').value) || 0,
-      link: link,
-      subtotal: subtotal
-    };
-  }
-}
-
-function eliminarFilaPlanilla(id) {
-  document.querySelector(`.presupuesto-row[data-id="${id}"]`)?.remove();
-  planillaLineas = planillaLineas.filter(l => l.id !== id);
-  calcularTotalesPlanilla();
-}
-
-function calcularPlanilla() {
-  let manoObra = 0;
-  let repuestos = 0;
-  
-  planillaLineas.forEach(linea => {
-    repuestos += linea.subtotal;
-  });
-  
-  document.getElementById('planilla-mano-obra').textContent = `$${manoObra.toLocaleString('es-AR')}`;
-  document.getElementById('planilla-repuestos').textContent = `$${repuestos.toLocaleString('es-AR')}`;
-  document.getElementById('planilla-total-val').textContent = `$${(manoObra + repuestos).toLocaleString('es-AR')}`;
-}
-
-function limpiarPlanilla() {
-  document.getElementById('planilla-body').innerHTML = '';
-  planillaLineas = [];
-  document.getElementById('planilla-mano-obra').textContent = '$0';
-  document.getElementById('planilla-repuestos').textContent = '$0';
-  document.getElementById('planilla-total-val').textContent = '$0';
-}
-
-function calcularTotalesPlanilla() {
-  let total = 0;
-  document.querySelectorAll('.planilla-subtotal').forEach(el => {
-    const txt = el.textContent.replace('$', '').replace(/\./g, '').replace(',', '.');
-    total += parseFloat(txt) || 0;
-  });
-  document.getElementById('planilla-total-val').textContent = `$${total.toLocaleString('es-AR')}`;
-}
-
-function imprimirPlanilla() {
-  const mostrarCostos = document.getElementById('mostrar-costos').checked;
-  const fecha = new Date().toLocaleDateString('es-AR');
-  
-  let html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Planilla de trabajo</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 1.5rem; max-width: 850px; margin: 0 auto; background: #fff; }
-        h1 { color: #1a1a1a; margin: 0 0 0.25rem 0; font-size: 1.4rem; }
-        .fecha { color: #666; font-size: 0.85rem; margin-bottom: 1.5rem; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
-        th { background: #1a1a1a; color: white; padding: 0.6rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; }
-        td { border-bottom: 1px solid #ddd; padding: 0.6rem; font-size: 0.85rem; }
-        .item-col { width: 15%; }
-        .desc-col { width: 30%; }
-        .cant-col { width: 8%; text-align: center; }
-        .prec-col { width: 12%; text-align: right; }
-        .subt-col { width: 12%; text-align: right; font-weight: 600; }
-        .link-col { width: 23%; }
-        .link-col a { color: #0066cc; text-decoration: none; font-size: 0.75rem; }
-        .totales { display: flex; justify-content: flex-end; gap: 2rem; padding: 1rem; background: #f5f5f5; border-radius: 6px; }
-        .totales-section { text-align: right; }
-        .totales-label { font-size: 0.7rem; text-transform: uppercase; color: #666; }
-        .totales-val { font-size: 1.1rem; font-weight: 700; }
-        .totales-total .totales-val { font-size: 1.3rem; color: #e8ff47; background: #1a1a1a; padding: 0.5rem 1rem; border-radius: 4px; }
-        .footer { text-align: center; color: #888; font-size: 0.75rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; }
-      </style>
-    </head>
-    <body>
-      <h1>Planilla de trabajo</h1>
-      <p class="fecha">Fecha: ${fecha}</p>
-      <table>
-        <thead>
-          <tr>
-            <th class="item-col">Ítem</th>
-            <th class="desc-col">Descripción</th>
-            <th class="cant-col">Cant</th>
-            ${mostrarCostos ? '<th class="prec-col">P.Unitario</th><th class="subt-col">Subtotal</th>' : ''}
-            <th class="link-col">Link</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
-  
-  document.querySelectorAll('.presupuesto-row').forEach(row => {
-    const item = row.querySelector('.planilla-item-select option:checked')?.text || '';
-    const desc = row.querySelector('.planilla-desc').value || '—';
-    const cant = row.querySelector('.planilla-cant').value;
-    const unitario = row.querySelector('.planilla-unitario').value;
-    const subtotal = row.querySelector('.planilla-subtotal').textContent;
-    const link = row.querySelector('.planilla-link').value;
-    
-    html += `<tr>
-      <td>${item || 'Servicio'}</td>
-      <td>${desc}</td>
-      <td style="text-align:center">${cant}</td>
-      ${mostrarCostos ? `<td style="text-align:right">$${parseFloat(unitario||0).toLocaleString('es-AR')}</td><td style="text-align:right">${subtotal}</td>` : ''}
-      <td>${link ? `<a href="${link}" target="_blank">${link.substring(0,30)}...</a>` : '—'}</td>
-    </tr>`;
-  });
-  
-  const manoObra = document.getElementById('planilla-mano-obra').textContent;
-  const repuestos = document.getElementById('planilla-repuestos').textContent;
-  const total = document.getElementById('planilla-total-val').textContent;
-  
-  html += `
-        </tbody>
-      </table>
-      <div class="totales">
-        <div class="totales-section">
-          <div class="totales-label">Mano de obra</div>
-          <div class="totales-val">${manoObra}</div>
-        </div>
-        <div class="totales-section">
-          <div class="totales-label">Repuestos</div>
-          <div class="totales-val">${repuestos}</div>
-        </div>
-        <div class="totales-section totales-total">
-          <div class="totales-label">TOTAL</div>
-          <div class="totales-val">${total}</div>
-        </div>
-      </div>
-      <div class="footer">
-        Gracias por confiar en nuestro servicio técnico
-      </div>
-    </body>
-    </html>
-  `;
-  
-  const win = window.open('', '_blank');
-  win.document.write(html);
-  win.document.close();
-  win.print();
 }
 
 // ─── BACKUP ──────────────────────────────────────────────────────────────
