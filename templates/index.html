@@ -355,7 +355,7 @@ select option { background: var(--surface); }
 .presupuesto-layout { display: grid; gap: 1rem; }
 .presupuesto-grid {
   display: grid;
-  grid-template-columns: 180px 1fr 80px 1fr 80px 100px;
+  grid-template-columns: 100px 1fr 80px 100px 100px 40px;
   gap: 1px;
   background: var(--border);
   border-radius: var(--radius);
@@ -422,9 +422,9 @@ select option { background: var(--surface); }
   font-weight: 700;
   color: var(--accent);
 }
-.sin-costos .presupuesto-header:nth-child(6),
-.sin-costos .presupuesto-row > *:nth-child(6) { display: none; }
-.sin-costos .presupuesto-grid { grid-template-columns: 180px 1fr 80px 1fr 80px; }
+.sin-costos .presupuesto-header:nth-child(5),
+.sin-costos .presupuesto-row > *:nth-child(5) { display: none; }
+.sin-costos .presupuesto-grid { grid-template-columns: 100px 1fr 80px 100px 40px; }
 
 /* ─── REPÚESTOS ─── */
 .repuesto-item {
@@ -469,12 +469,12 @@ select option { background: var(--surface); }
     Hora<span>Service</span>
   </div>
   <nav>
-    <button class="tab active" onclick="switchTab('calc')">Calculadora</button>
-    <button class="tab" onclick="switchTab('presupuesto')">Presupuesto</button>
-    <button class="tab" onclick="switchTab('servicios')">Servicios</button>
-    <button class="tab" onclick="switchTab('repuestos')">Repuestos</button>
-    <button class="tab" onclick="switchTab('backup')">Backup</button>
-    <button class="tab" onclick="switchTab('config')">Config</button>
+    <button class="tab active" onclick="switchTab('calc', this)">Calculadora</button>
+    <button class="tab" onclick="switchTab('presupuesto', this)">Presupuesto</button>
+    <button class="tab" onclick="switchTab('servicios', this)">Servicios</button>
+    <button class="tab" onclick="switchTab('repuestos', this)">Repuestos</button>
+    <button class="tab" onclick="switchTab('backup', this)">Backup</button>
+    <button class="tab" onclick="switchTab('config', this)">Config</button>
   </nav>
 </header>
 
@@ -675,16 +675,17 @@ select option { background: var(--surface); }
             <input type="checkbox" id="mostrar-costos" checked>
             Mostrar costos
           </label>
-          <button class="btn btn-ghost btn-sm" onclick="nuevaLinea()">+ Agregar línea</button>
+          <button class="btn btn-ghost btn-sm" onclick="nuevaLinea('servicio')">+ Servicio</button>
+          <button class="btn btn-ghost btn-sm" onclick="nuevaLinea('repuesto')">+ Repuesto</button>
         </div>
       </div>
       <div class="presupuesto-grid">
-        <div class="presupuesto-header">Servicio</div>
-        <div class="presupuesto-header">Descripción</div>
-        <div class="presupuesto-header">Horas</div>
-        <div class="presupuesto-header">Destino</div>
-        <div class="presupuesto-header">Distancia</div>
+        <div class="presupuesto-header">Tipo</div>
+        <div class="presupuesto-header">Ítem</div>
+        <div class="presupuesto-header">Cantidad</div>
+        <div class="presupuesto-header">P.Unit/Hora</div>
         <div class="presupuesto-header">Subtotal</div>
+        <div class="presupuesto-header"></div>
         <div id="presupuesto-body" class="presupuesto-body"></div>
       </div>
       <div id="presupuesto-total" class="presupuesto-total">
@@ -692,8 +693,8 @@ select option { background: var(--surface); }
         <span id="presupuesto-total-val">$0</span>
       </div>
       <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-        <button class="btn btn-primary" onclick="calcularPresupuesto()">Calcular</button>
         <button class="btn btn-ghost" onclick="imprimirPresupuesto()">Imprimir / PDF</button>
+        <button class="btn btn-ghost" onclick="limpiarPresupuesto()">Limpiar</button>
       </div>
     </div>
   </div>
@@ -707,16 +708,17 @@ let servicioSeleccionado = null;
 let editandoId = null;
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('panel-' + tab).classList.add('active');
-  event.target.classList.add('active');
+function switchTab(tab, btn) {
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  var panel = document.getElementById('panel-' + tab);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (tab === 'calc') cargarSelector();
   if (tab === 'servicios') cargarServiciosList();
   if (tab === 'repuestos') cargarRepuestosList();
   if (tab === 'config') cargarConfig();
-  if (tab === 'presupuesto' && !serviciosCache.length) cargarServiciosParaPresupuesto();
+  if (tab === 'presupuesto' && typeof serviciosCache !== 'undefined' && !serviciosCache.length) cargarServiciosParaPresupuesto();
   if (tab === 'logs') cargarLogs();
 }
 
@@ -1014,27 +1016,54 @@ async function cargarServiciosParaPresupuesto() {
   serviciosCache = await r.json();
 }
 
-async function nuevaLinea() {
-  if (!serviciosCache.length) {
-    await cargarServiciosParaPresupuesto();
-  }
+let repuestosCache = [];
+
+async function cargarRepuestosParaPresupuesto() {
+  const r = await fetch('/api/repuestos');
+  repuestosCache = await r.json();
+}
+
+async function nuevaLinea(tipo) {
+  if (!serviciosCache.length) await cargarServiciosParaPresupuesto();
+  if (!repuestosCache.length) await cargarRepuestosParaPresupuesto();
   
   const id = Date.now();
-  const options = serviciosCache.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+  let options = '';
+  
+  if (tipo === 'servicio') {
+    options = serviciosCache.map(s => `<option value="s${s.id}" data-tipo="servicio" data-valor="${s.valor_hora}" data-min="${s.horas_minimas}">${s.nombre}</option>`).join('');
+  } else {
+    options = repuestosCache.map(r => `<option value="r${r.id}" data-tipo="repuesto" data-valor="${r.precio}">${r.nombre}</option>`).join('');
+    options += '<option value="manual" data-tipo="manual" data-valor="0">Otro (manual)...</option>';
+  }
   
   const row = document.createElement('div');
   row.className = 'presupuesto-row';
   row.dataset.id = id;
-  row.innerHTML = `
-    <div><select class="servicio-select" onchange="actualizarFila('${id}')">${options}</select></div>
-    <div><input type="text" class="desc-input" placeholder="Detalle del trabajo"></div>
-    <div><input type="number" class="horas-input" value="1" min="0.5" step="0.5" onchange="actualizarFila('${id}')"></div>
-    <div class="destino-cell"><input type="text" class="destino-input" placeholder="Dirección" oninput="autocompleteFila(this, '${id}')"></div>
-    <div><span class="distancia-cell">—</span></div>
-    <div><span class="subtotal-cell">$0</span></div>
-  `;
+  row.dataset.tipo = tipo;
+  
+  if (tipo === 'servicio') {
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--accent2);">SERVICIO</div>
+      <div><select class="item-select" onchange="actualizarFila('${id}')">${options}</select></div>
+      <div><input type="number" class="cant-input" value="1" min="0.5" step="0.5" onchange="actualizarFila('${id}')"></div>
+      <div><span class="valor-cell">$0</span></div>
+      <div><span class="subtotal-cell">$0</span></div>
+      <div><button class="btn-eliminar" onclick="eliminarLinea('${id}')" title="Eliminar">✕</button></div>
+    `;
+  } else {
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--muted);">REPÜESTO</div>
+      <div><select class="item-select" onchange="actualizarFila('${id}')">${options}</select></div>
+      <div><input type="number" class="cant-input" value="1" min="1" onchange="actualizarFila('${id}')"></div>
+      <div><input type="number" class="valor-input" value="0" min="0" onchange="actualizarFila('${id}')"></div>
+      <div><span class="subtotal-cell">$0</span></div>
+      <div><button class="btn-eliminar" onclick="eliminarLinea('${id}')" title="Eliminar">✕</button></div>
+    `;
+  }
+  
   document.getElementById('presupuesto-body').appendChild(row);
-  presupuestoLineas.push({ id, servicioId: null, horas: 1, destino: '', distancia: null, subtotal: 0 });
+  presupuestoLineas.push({ id, tipo, itemId: null, cantidad: 1, valor: 0, subtotal: 0 });
   actualizarFila(id);
 }
 
@@ -1042,14 +1071,44 @@ function actualizarFila(id) {
   const row = document.querySelector(`.presupuesto-row[data-id="${id}"]`);
   if (!row) return;
   
-  const servicioId = parseInt(row.querySelector('.servicio-select').value);
-  const horas = parseFloat(row.querySelector('.horas-input').value) || 1;
-  const destino = row.querySelector('.destino-input').value;
+  const tipo = row.dataset.tipo;
+  const select = row.querySelector('.item-select');
+  const cantidad = parseFloat(row.querySelector('.cant-input').value) || 1;
+  let valor = 0;
+  
+  if (select.value === 'manual') {
+    valor = parseFloat(row.querySelector('.valor-input').value) || 0;
+  } else if (select.selectedOption = select.options[select.selectedIndex]) {
+    valor = parseFloat(select.selectedOption.dataset.valor) || 0;
+    if (tipo === 'repuesto' && select.value !== 'manual') {
+      if (!row.querySelector('.valor-input')) {
+        const valorInput = document.createElement('input');
+        valorInput.type = 'number';
+        valorInput.className = 'valor-input';
+        valorInput.value = valor;
+        valorInput.min = 0;
+        valorInput.onchange = function() { actualizarFila(id); };
+        row.querySelector('.valor-cell').innerHTML = '';
+        row.querySelector('.valor-cell').appendChild(valorInput);
+      }
+    }
+  }
+  
+  if (tipo === 'servicio' && select.selectedOption) {
+    const horasMin = parseFloat(select.selectedOption.dataset.min) || 1;
+    const horasCobradas = Math.max(cantidad, horasMin);
+    valor = horasCobradas * valor;
+  } else {
+    valor = cantidad * valor;
+  }
   
   const idx = presupuestoLineas.findIndex(l => l.id === id);
   if (idx > -1) {
-    presupuestoLineas[idx] = { ...presupuestoLineas[idx], servicioId, horas, destino };
+    presupuestoLineas[idx] = { ...presupuestoLineas[idx], itemId: select.value, cantidad, valor };
   }
+  
+  row.querySelector('.subtotal-cell').textContent = `$${valor.toLocaleString('es-AR')}`;
+  calcularTotalPresupuesto();
 }
 
 function eliminarLinea(id) {
@@ -1058,84 +1117,19 @@ function eliminarLinea(id) {
   calcularTotalPresupuesto();
 }
 
-function autocompleteFila(input, id) {
-  const query = input.value.trim();
-  if (query.length < 3) return;
-  
-  clearTimeout(window._autocompleteTimeout);
-  window._autocompleteTimeout = setTimeout(async () => {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=3&countrycodes=ar`, {
-        headers: { 'User-Agent': 'HoraService/1.0' }
-      });
-      const data = await res.json();
-      if (data.length) {
-        input.value = data[0].display_name;
-        actualizarFila(id);
-      }
-    } catch(e) {}
-  }, 300);
-}
-
-async function calcularPresupuesto() {
-  if (!serviciosCache.length) await cargarServiciosParaPresupuesto();
-  
-  const configRes = await fetch('/api/config-publica');
-  const config = await configRes.json();
-  const residencia = config.residencia || '';
-  const recargoKm = parseFloat(config.recargo_por_km) || 0;
-  
-  let total = 0;
-  
-  for (const linea of presupuestoLineas) {
-    const row = document.querySelector(`.presupuesto-row[data-id="${linea.id}"]`);
-    if (!row) continue;
-    
-    const servicio = serviciosCache.find(s => s.id === linea.servicioId);
-    if (!servicio) continue;
-    
-    const horasCobradas = Math.max(linea.horas, servicio.horas_minimas);
-    const costoBase = horasCobradas * servicio.valor_hora;
-    let recargoDistancia = 0;
-    let distancia = null;
-    
-    if (residencia && linea.destino) {
-      try {
-        const geoOrigen = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(residencia)}&format=json&limit=1`, {
-          headers: { 'User-Agent': 'HoraService/1.0' }
-        }).then(r => r.json());
-        
-        const geoDestino = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(linea.destino)}&format=json&limit=1`, {
-          headers: { 'User-Agent': 'HoraService/1.0' }
-        }).then(r => r.json());
-        
-        if (geoOrigen.length && geoDestino.length) {
-          const d = await fetch(`https://router.project-osrm.org/route/v1/driving/${geoOrigen[0].lon},${geoOrigen[0].lat};${geoDestino[0].lon},${geoDestino[0].lat}?overview=false`).then(r => r.json());
-          if (d.code === 'Ok') {
-            distancia = Math.round(d.routes[0].distance / 1000);
-            recargoDistancia = distancia * recargoKm;
-          }
-        }
-      } catch(e) {}
-    }
-    
-    const subtotal = costoBase + recargoDistancia;
-    total += subtotal;
-    
-    row.querySelector('.distancia-cell').textContent = distancia ? `${distancia} km` : '—';
-    row.querySelector('.subtotal-cell').textContent = `$${subtotal.toLocaleString('es-AR')}`;
-  }
-  
-  document.getElementById('presupuesto-total-val').textContent = `$${total.toLocaleString('es-AR')}`;
-}
-
 function calcularTotalPresupuesto() {
   let total = 0;
-  document.querySelectorAll('.subtotal-cell').forEach(el => {
-    const txt = el.textContent.replace('$', '').replace(/\./g, '').replace(',', '.');
+  document.querySelectorAll('.presupuesto-row').forEach(row => {
+    const txt = row.querySelector('.subtotal-cell').textContent.replace('$', '').replace(/\./g, '').replace(',', '.');
     total += parseFloat(txt) || 0;
   });
   document.getElementById('presupuesto-total-val').textContent = `$${total.toLocaleString('es-AR')}`;
+}
+
+function limpiarPresupuesto() {
+  document.getElementById('presupuesto-body').innerHTML = '';
+  presupuestoLineas = [];
+  document.getElementById('presupuesto-total-val').textContent = '$0';
 }
 
 function imprimirPresupuesto() {
@@ -1149,121 +1143,58 @@ function imprimirPresupuesto() {
       <title>Presupuesto</title>
       <style>
         * { box-sizing: border-box; }
-        body { 
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-          padding: 2.5rem; 
-          max-width: 900px; 
-          margin: 0 auto; 
-          background: #fafafa;
-        }
-        .header { 
-          text-align: center; 
-          margin-bottom: 2.5rem;
-          border-bottom: 2px solid #e8ff47;
-          padding-bottom: 1.5rem;
-        }
-        h1 { 
-          color: #1a1a1a; 
-          margin: 0 0 0.5rem 0;
-          font-size: 1.8rem;
-          font-weight: 600;
-        }
-        .fecha { 
-          color: #666; 
-          font-size: 0.95rem;
-        }
-        table { 
-          width: 100%; 
-          border-collapse: collapse; 
-          margin-bottom: 2rem;
-          background: white;
-          border-radius: 8px;
-          overflow: hidden;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        th { 
-          background: #1a1a1a; 
-          color: white;
-          padding: 1rem; 
-          text-align: left; 
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        td { 
-          border-bottom: 1px solid #eee; 
-          padding: 1rem; 
-          color: #333;
-        }
-        tr:last-child td { border-bottom: none; }
-        .servicio-col { font-weight: 600; color: #1a1a1a; }
-        .desc-col { color: #555; font-style: italic; }
-        .horas-col { text-align: center; }
-        .subtotal-col { 
-          text-align: right; 
-          font-weight: 600;
-          color: #e8ff47;
-          background: #1a1a1a;
-        }
-        .total-row {
-          display: flex;
-          justify-content: flex-end;
-          align-items: center;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
-          border-radius: 8px;
-          margin-bottom: 1.5rem;
-        }
-        .total-label { 
-          color: #999; 
-          font-size: 0.9rem;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          margin-right: 1.5rem;
-        }
-        .total-amount { 
-          color: #e8ff47;
-          font-size: 1.8rem;
-          font-weight: 700;
-        }
-        .footer { 
-          text-align: center; 
-          color: #888; 
-          font-size: 0.8rem; 
-          margin-top: 2rem;
-          padding-top: 1rem;
-          border-top: 1px solid #ddd;
-        }
+        body { font-family: 'Segoe UI', sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; background: #fff; }
+        h1 { color: #1a1a1a; margin: 0 0 0.5rem; }
+        .fecha { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+        th { background: #1a1a1a; color: white; padding: 0.75rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; }
+        td { border-bottom: 1px solid #eee; padding: 0.75rem; font-size: 0.9rem; }
+        .tipo-col { width: 80px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+        .servicio { color: #47c8ff; }
+        .repuesto { color: #666; }
+        .cant-col { width: 60px; text-align: center; }
+        .prec-col { width: 90px; text-align: right; }
+        .subt-col { width: 90px; text-align: right; font-weight: 600; }
+        .total-box { display: flex; justify-content: flex-end; padding: 1rem; background: #1a1a1a; border-radius: 6px; }
+        .total-label { color: #999; font-size: 0.8rem; text-transform: uppercase; margin-right: 1rem; }
+        .total-amount { color: #e8ff47; font-size: 1.4rem; font-weight: 700; }
+        .footer { text-align: center; color: #888; font-size: 0.8rem; margin-top: 2rem; }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Presupuesto de Servicios</h1>
-        <p class="fecha">Fecha: ${fecha}</p>
-      </div>
+      <h1>Presupuesto</h1>
+      <p class="fecha">Fecha: ${fecha}</p>
       <table>
         <thead>
           <tr>
-            <th>Servicio</th>
-            <th>Descripción</th>
-            <th style="text-align:center">Horas</th>
-            ${mostrarCostos ? '<th style="text-align:right">Subtotal</th>' : ''}
+            <th>Tipo</th>
+            <th>Ítem</th>
+            <th class="cant-col">Cant.</th>
+            ${mostrarCostos ? '<th class="prec-col">P.Unit</th><th class="subt-col">Subtotal</th>' : ''}
           </tr>
         </thead>
         <tbody>
   `;
   
   document.querySelectorAll('.presupuesto-row').forEach(row => {
-    const servicio = row.querySelector('.servicio-select option:checked')?.text || '';
-    const desc = row.querySelector('.desc-input').value || '—';
-    const horas = row.querySelector('.horas-input').value;
+    const tipo = row.dataset.tipo;
+    const tipoLabel = tipo === 'servicio' ? 'Servicio' : 'Repuesto';
+    const tipoClass = tipo === 'servicio' ? 'servicio' : 'repuesto';
+    const item = row.querySelector('.item-select option:checked')?.text || '';
+    const cant = row.querySelector('.cant-input').value;
+    const valorCell = row.querySelector('.valor-cell');
+    let valor = '';
+    if (valorCell) {
+      const input = valorCell.querySelector('input');
+      valor = input ? input.value : valorCell.textContent.replace('$', '');
+    }
     const subtotal = row.querySelector('.subtotal-cell').textContent;
     
     html += `<tr>
-      <td class="servicio-col">${servicio}</td>
-      <td class="desc-col">${desc}</td>
-      <td class="horas-col">${horas}</td>
-      ${mostrarCostos ? `<td class="subtotal-col">${subtotal}</td>` : ''}
+      <td class="tipo-col ${tipoClass}">${tipoLabel}</td>
+      <td>${item}</td>
+      <td class="cant-col">${cant}</td>
+      ${mostrarCostos ? `<td class="prec-col">$${parseFloat(valor||0).toLocaleString('es-AR')}</td><td class="subt-col">${subtotal}</td>` : ''}
     </tr>`;
   });
   
@@ -1272,12 +1203,12 @@ function imprimirPresupuesto() {
         </tbody>
       </table>
       ${mostrarCostos ? `
-      <div class="total-row">
+      <div class="total-box">
         <span class="total-label">Total</span>
         <span class="total-amount">${total}</span>
       </div>` : ''}
       <div class="footer">
-        <p>Gracias por confiar en nuestros servicios</p>
+        <p>Gracias por confiar en nuestro servicio</p>
       </div>
     </body>
     </html>
