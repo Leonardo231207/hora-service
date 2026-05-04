@@ -469,10 +469,10 @@ select option { background: var(--surface); }
     Hora<span>Service</span>
   </div>
   <nav>
-    <button class="tab active" onclick="switchTab('calc', this)">Calculadora</button>
-    <button class="tab" onclick="switchTab('presupuesto', this)">Presupuesto</button>
+    <button class="tab active" onclick="switchTab('presupuesto', this)">Presupuesto</button>
     <button class="tab" onclick="switchTab('servicios', this)">Servicios</button>
     <button class="tab" onclick="switchTab('repuestos', this)">Repuestos</button>
+    <button class="tab" onclick="switchTab('calc', this)">Calculadora</button>
     <button class="tab" onclick="switchTab('backup', this)">Backup</button>
     <button class="tab" onclick="switchTab('config', this)">Config</button>
   </nav>
@@ -480,8 +480,53 @@ select option { background: var(--surface); }
 
 <main>
 
+<!-- ══════════ PRESUPUESTO ══════════ -->
+<div id="panel-presupuesto" class="panel active">
+  <div class="presupuesto-layout">
+    <div class="card" style="grid-column: 1 / -1;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <div style="display:flex; gap:1rem; align-items:center;">
+          <div class="card-title" style="margin-bottom:0;">Presupuesto</div>
+          <input type="text" id="presupuesto-nombre" placeholder="Nombre del presupuesto (opcional)" style="padding:0.3rem 0.5rem; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); font-size:0.85rem; width:250px;">
+        </div>
+        <div style="display:flex; gap:1rem; align-items:center;">
+          <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+            <input type="checkbox" id="mostrar-costos" checked>
+            Mostrar costos
+          </label>
+          <button class="btn btn-ghost btn-sm" onclick="nuevaLinea('servicio')">+ Servicio</button>
+          <button class="btn btn-ghost btn-sm" onclick="nuevaLinea('repuesto')">+ Repuesto</button>
+        </div>
+      </div>
+      <div class="presupuesto-grid">
+        <div class="presupuesto-header">Tipo</div>
+        <div class="presupuesto-header">Ítem</div>
+        <div class="presupuesto-header">Cantidad</div>
+        <div class="presupuesto-header">P.Unit/Hora</div>
+        <div class="presupuesto-header">Subtotal</div>
+        <div class="presupuesto-header"></div>
+        <div id="presupuesto-body" class="presupuesto-body"></div>
+      </div>
+      <div id="presupuesto-total" class="presupuesto-total">
+        <span>TOTAL</span>
+        <span id="presupuesto-total-val">$0</span>
+      </div>
+      <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="guardarPresupuesto()">💾 Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="cargarPresupuestosGuardados()">📂 Cargar guardado</button>
+        <button class="btn btn-ghost" onclick="imprimirPresupuesto()">Imprimir / PDF</button>
+        <button class="btn btn-ghost" onclick="limpiarPresupuesto()">Limpiar</button>
+      </div>
+      <div id="presupuestos-guardados" style="margin-top:1rem; display:none;">
+        <div class="card-title" style="font-size:0.75rem; margin-bottom:0.5rem;">Presupuestos guardados</div>
+        <div id="lista-presupuestos" style="max-height:200px; overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════ CALCULADORA ══════════ -->
-<div id="panel-calc" class="panel active">
+<div id="panel-calc" class="panel">
   <div class="calc-layout">
 
     <!-- Selector de servicio -->
@@ -664,51 +709,6 @@ select option { background: var(--surface); }
   </div>
 </div>
 
-<!-- ══════════ PRESUPUESTO ══════════ -->
-<div id="panel-presupuesto" class="panel">
-  <div class="presupuesto-layout">
-    <div class="card" style="grid-column: 1 / -1;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <div style="display:flex; gap:1rem; align-items:center;">
-          <div class="card-title" style="margin-bottom:0;">Presupuesto</div>
-          <input type="text" id="presupuesto-nombre" placeholder="Nombre del presupuesto (opcional)" style="padding:0.3rem 0.5rem; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); font-size:0.85rem; width:250px;">
-        </div>
-        <div style="display:flex; gap:1rem; align-items:center;">
-          <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
-            <input type="checkbox" id="mostrar-costos" checked>
-            Mostrar costos
-          </label>
-          <button class="btn btn-ghost btn-sm" onclick="nuevaLinea('servicio')">+ Servicio</button>
-          <button class="btn btn-ghost btn-sm" onclick="nuevaLinea('repuesto')">+ Repuesto</button>
-        </div>
-      </div>
-      <div class="presupuesto-grid">
-        <div class="presupuesto-header">Tipo</div>
-        <div class="presupuesto-header">Ítem</div>
-        <div class="presupuesto-header">Cantidad</div>
-        <div class="presupuesto-header">P.Unit/Hora</div>
-        <div class="presupuesto-header">Subtotal</div>
-        <div class="presupuesto-header"></div>
-        <div id="presupuesto-body" class="presupuesto-body"></div>
-      </div>
-      <div id="presupuesto-total" class="presupuesto-total">
-        <span>TOTAL</span>
-        <span id="presupuesto-total-val">$0</span>
-      </div>
-      <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" onclick="guardarPresupuesto()">💾 Guardar</button>
-        <button class="btn btn-ghost btn-sm" onclick="cargarPresupuestosGuardados()">📂 Cargar guardado</button>
-        <button class="btn btn-ghost" onclick="imprimirPresupuesto()">Imprimir / PDF</button>
-        <button class="btn btn-ghost" onclick="limpiarPresupuesto()">Limpiar</button>
-      </div>
-      <div id="presupuestos-guardados" style="margin-top:1rem; display:none;">
-        <div class="card-title" style="font-size:0.75rem; margin-bottom:0.5rem;">Presupuestos guardados</div>
-        <div id="lista-presupuestos" style="max-height:200px; overflow-y:auto;"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
 
 <script>
@@ -727,7 +727,10 @@ function switchTab(tab, btn) {
   if (tab === 'servicios') cargarServiciosList();
   if (tab === 'repuestos') cargarRepuestosList();
   if (tab === 'config') cargarConfig();
-  if (tab === 'presupuesto' && typeof serviciosCache !== 'undefined' && !serviciosCache.length) cargarServiciosParaPresupuesto();
+  if (tab === 'presupuesto') {
+    if (typeof serviciosCache === 'undefined' || !serviciosCache.length) cargarServiciosParaPresupuesto();
+    if (typeof repuestosCache === 'undefined' || !repuestosCache.length) cargarRepuestosParaPresupuesto();
+  }
   if (tab === 'logs') cargarLogs();
 }
 
@@ -1213,17 +1216,10 @@ function imprimirPresupuesto() {
     const subtotal = parseFloat(subtotalText.replace('$','').replace(/\./g,'').replace(',','.')) || 0;
 
     let precCol = '';
-    if (mostrarCostos) {
-      let valorUnitario = 0;
-      if (tipo === 'repuesto') {
-        const select = row.querySelector('.item-select');
-        const selectedOption = select?.options[select.selectedIndex];
-        valorUnitario = parseFloat(selectedOption?.dataset.valor || selectedOption?.getAttribute('data-valor') || 0);
-      } else {
-        const select = row.querySelector('.item-select');
-        const selectedOption = select?.options[select.selectedIndex];
-        valorUnitario = parseFloat(selectedOption?.dataset.valor || selectedOption?.getAttribute('data-valor') || 0);
-      }
+    if (mostrarCostos && tipo === 'repuesto') {
+      const select = row.querySelector('.item-select');
+      const selectedOption = select?.options[select.selectedIndex];
+      const valorUnitario = parseFloat(selectedOption?.dataset.valor || selectedOption?.getAttribute('data-valor') || 0);
       precCol = `<td class="prec-col">$${valorUnitario.toLocaleString('es-AR')}</td>`;
     }
 
