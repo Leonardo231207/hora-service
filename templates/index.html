@@ -669,7 +669,10 @@ select option { background: var(--surface); }
   <div class="presupuesto-layout">
     <div class="card" style="grid-column: 1 / -1;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <div class="card-title" style="margin-bottom:0;">Presupuesto</div>
+        <div style="display:flex; gap:1rem; align-items:center;">
+          <div class="card-title" style="margin-bottom:0;">Presupuesto</div>
+          <input type="text" id="presupuesto-nombre" placeholder="Nombre del presupuesto (opcional)" style="padding:0.3rem 0.5rem; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); font-size:0.85rem; width:250px;">
+        </div>
         <div style="display:flex; gap:1rem; align-items:center;">
           <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
             <input type="checkbox" id="mostrar-costos" checked>
@@ -692,9 +695,15 @@ select option { background: var(--surface); }
         <span>TOTAL</span>
         <span id="presupuesto-total-val">$0</span>
       </div>
-      <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+      <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="guardarPresupuesto()">💾 Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="cargarPresupuestosGuardados()">📂 Cargar guardado</button>
         <button class="btn btn-ghost" onclick="imprimirPresupuesto()">Imprimir / PDF</button>
         <button class="btn btn-ghost" onclick="limpiarPresupuesto()">Limpiar</button>
+      </div>
+      <div id="presupuestos-guardados" style="margin-top:1rem; display:none;">
+        <div class="card-title" style="font-size:0.75rem; margin-bottom:0.5rem;">Presupuestos guardados</div>
+        <div id="lista-presupuestos" style="max-height:200px; overflow-y:auto;"></div>
       </div>
     </div>
   </div>
@@ -1199,28 +1208,30 @@ function imprimirPresupuesto() {
     const tipoClass = tipo === 'servicio' ? 'servicio' : 'repuesto';
     const item = row.querySelector('.item-select option:checked')?.text || '';
     const cant = row.querySelector('.cant-input').value;
-    const valorCell = row.querySelector('.valor-cell');
-    let valor = '';
-    if (valorCell) {
-      const input = valorCell.querySelector('input');
-      valor = input ? input.value : valorCell.textContent.replace('$', '').replace('/h', '').trim();
-    }
-    const subtotal = row.querySelector('.subtotal-cell').textContent;
-    
+    const cantNum = parseFloat(cant) || 1;
+    const subtotalText = row.querySelector('.subtotal-cell')?.textContent || '$0';
+    const subtotal = parseFloat(subtotalText.replace('$','').replace(/\./g,'').replace(',','.')) || 0;
+
     let precCol = '';
     if (mostrarCostos) {
+      let valorUnitario = 0;
       if (tipo === 'repuesto') {
-        precCol = `<td class="prec-col">$${parseFloat(valor||0).toLocaleString('es-AR')}</td>`;
+        const select = row.querySelector('.item-select');
+        const selectedOption = select?.options[select.selectedIndex];
+        valorUnitario = parseFloat(selectedOption?.dataset.valor || selectedOption?.getAttribute('data-valor') || 0);
       } else {
-        precCol = `<td class="prec-col">—</td>`;
+        const select = row.querySelector('.item-select');
+        const selectedOption = select?.options[select.selectedIndex];
+        valorUnitario = parseFloat(selectedOption?.dataset.valor || selectedOption?.getAttribute('data-valor') || 0);
       }
+      precCol = `<td class="prec-col">$${valorUnitario.toLocaleString('es-AR')}</td>`;
     }
-    
+
     html += `<tr>
       <td class="tipo-col ${tipoClass}">${tipoLabel}</td>
       <td>${item}</td>
       <td class="cant-col">${cant}</td>
-      ${precCol}<td class="subt-col">${subtotal}</td>
+      ${precCol}<td class="subt-col">$${subtotal.toLocaleString('es-AR')}</td>
     </tr>`;
   });
   
@@ -1244,6 +1255,115 @@ function imprimirPresupuesto() {
   win.document.write(html);
   win.document.close();
   win.print();
+}
+
+// ─── GESTIÓN DE PRESUPUESTOS GUARDADOS ─────────────────────────────────
+
+async function guardarPresupuesto() {
+  const lineas = [];
+  document.querySelectorAll('.presupuesto-row').forEach(row => {
+    const tipo = row.dataset.tipo;
+    const select = row.querySelector('.item-select');
+    const itemId = select?.value || '';
+    const itemNombre = select?.options[select.selectedIndex]?.text || '';
+    const cantidad = parseFloat(row.querySelector('.cant-input')?.value) || 1;
+    const valorText = row.querySelector('.valor-cell')?.textContent || '0';
+    const valorUnitario = parseFloat(valorText.replace('$','').replace('/h','').replace(/\./g,'').replace(',','.')) || 0;
+    const subtotalText = row.querySelector('.subtotal-cell')?.textContent || '0';
+    const subtotal = parseFloat(subtotalText.replace('$','').replace(/\./g,'').replace(',','.')) || 0;
+
+    lineas.push({ tipo, item_id: itemId, item_nombre: itemNombre, cantidad, valor_unitario: valorUnitario, subtotal });
+  });
+
+  if (!lineas.length) {
+    toast('No hay líneas en el presupuesto', 'err');
+    return;
+  }
+
+  const nombre = document.getElementById('presupuesto-nombre').value.trim();
+  const totalText = document.getElementById('presupuesto-total-val').textContent;
+  const total = parseFloat(totalText.replace('$','').replace(/\./g,'').replace(',','.')) || 0;
+
+  const r = await fetch('/api/presupuestos', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ nombre, lineas, total })
+  });
+
+  if (r.ok) {
+    document.getElementById('presupuesto-nombre').value = '';
+    toast('Presupuesto guardado');
+  } else {
+    toast('Error al guardar', 'err');
+  }
+}
+
+async function cargarPresupuestosGuardados() {
+  const div = document.getElementById('presupuestos-guardados');
+  if (div.style.display === 'block') {
+    div.style.display = 'none';
+    return;
+  }
+
+  const r = await fetch('/api/presupuestos');
+  const presupuestos = await r.json();
+  const lista = document.getElementById('lista-presupuestos');
+
+  if (!presupuestos.length) {
+    lista.innerHTML = '<div class="empty-state" style="padding:1rem;">No hay presupuestos guardados</div>';
+  } else {
+    lista.innerHTML = presupuestos.map(p => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem; border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-weight:600; font-size:0.9rem;">${p.nombre}</div>
+          <div style="font-size:0.75rem; color:var(--muted);">${new Date(p.fecha).toLocaleString('es-AR')} - $${p.total.toLocaleString('es-AR')}</div>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-ghost btn-sm" onclick="cargarPresupuesto(${p.id})">Cargar</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarPresupuestoGuardado(${p.id})">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  div.style.display = 'block';
+}
+
+async function cargarPresupuesto(id) {
+  const r = await fetch('/api/presupuestos');
+  const presupuestos = await r.json();
+  const p = presupuestos.find(x => x.id === id);
+  if (!p) return;
+
+  limpiarPresupuesto();
+
+  for (const l of p.lineas) {
+    await nuevaLinea(l.tipo);
+    const row = document.querySelector(`.presupuesto-row[data-id="${presupuestoLineas[presupuestoLineas.length-1].id}"]`);
+    if (!row) continue;
+
+    const select = row.querySelector('.item-select');
+    if (l.item_id && select) {
+      for (let i = 0; i < select.options.length; i++) {
+        if (select.options[i].value === l.item_id) {
+          select.selectedIndex = i;
+          break;
+        }
+      }
+    }
+    row.querySelector('.cant-input').value = l.cantidad;
+    actualizarFila(presupuestoLineas[presupuestoLineas.length-1].id);
+  }
+
+  document.getElementById('presupuestos-guardados').style.display = 'none';
+  toast('Presupuesto cargado');
+}
+
+async function eliminarPresupuestoGuardado(id) {
+  if (!confirm('¿Eliminar este presupuesto?')) return;
+  await fetch(`/api/presupuestos/${id}`, { method: 'DELETE' });
+  toast('Presupuesto eliminado');
+  cargarPresupuestosGuardados();
 }
 
 // ─── REPUESTOS ───────────────────────────────────────────────────────────
@@ -1370,10 +1490,16 @@ document.getElementById('import-file').addEventListener('change', function(e) {
       })
       .then(r => r.json())
       .then(data => {
+        let msg = `Importado: ${data.agregados.servicios} servicios, ${data.agregados.repuestos} repuestos, ${data.agregados.presupuestos || 0} presupuestos nuevos`;
+        const totalIgnorados = (data.ignorados.servicios || 0) + (data.ignorados.repuestos || 0) + (data.ignorados.presupuestos || 0);
+        if (totalIgnorados > 0) {
+          msg += ` (${totalIgnorados} ya existían)`;
+        }
         if (data.errores && data.errores.length) {
-          toast('Importado con errores: ' + data.errores.join(', '), 'err');
+          msg += `. Errores: ${data.errores.join(', ')}`;
+          toast(msg, 'err');
         } else {
-          toast('Datos importados correctamente');
+          toast(msg);
         }
         cargarServiciosList();
         cargarRepuestosList();

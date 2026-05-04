@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import requests
@@ -64,6 +65,46 @@ class Repuesto(db.Model):
             'descripcion': self.descripcion,
             'precio': self.precio,
             'link': self.link
+        }
+
+
+class Presupuesto(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    fecha = db.Column(db.DateTime, default=datetime.now)
+    nombre = db.Column(db.String(256))
+    total = db.Column(db.Float, default=0)
+
+    lineas = db.relationship('PresupuestoLinea', backref='presupuesto', cascade='all, delete-orphan', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'fecha': self.fecha.isoformat(),
+            'nombre': self.nombre,
+            'total': self.total,
+            'lineas': [l.to_dict() for l in self.lineas]
+        }
+
+
+class PresupuestoLinea(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    presupuesto_id = db.Column(db.Integer, db.ForeignKey('presupuesto.id', ondelete='CASCADE'), nullable=False)
+    tipo = db.Column(db.String(32), nullable=False)
+    item_id = db.Column(db.String(64))
+    item_nombre = db.Column(db.String(256))
+    cantidad = db.Column(db.Float, default=1)
+    valor_unitario = db.Column(db.Float, default=0)
+    subtotal = db.Column(db.Float, default=0)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'tipo': self.tipo,
+            'item_id': self.item_id,
+            'item_nombre': self.item_nombre,
+            'cantidad': self.cantidad,
+            'valor_unitario': self.valor_unitario,
+            'subtotal': self.subtotal
         }
 
 # ─── GEOCODING (Nominatim / OpenStreetMap) ────────────────────────────────────
@@ -220,30 +261,23 @@ def eliminar_repuesto(rid):
     db.session.commit()
     return jsonify({'ok': True})
 
-# --- Exportar/Importar ---
-
-@app.route('/api/exportar', methods=['GET'])
-def exportar_datos():
-    from datetime import datetime
-    datos = {
-        'version': 1,
-        'fecha': datetime.now().isoformat(),
-        'servicios': [s.to_dict() for s in Servicio.query.all()],
-        'repuestos': [r.to_dict() for r in Repuesto.query.all()],
-        'config': {c.clave: c.valor for c in Configuracion.query.all()}
-    }
-    app.logger.info(f'Exportando: {len(datos["servicios"])} servicios, {len(datos["repuestos"])} repuestos')
-    return jsonify(datos)
+# --- Importar ---
 
 @app.route('/api/importar', methods=['POST'])
 def importar_datos():
-    app.logger.info(f'Importar datos: {len(d.get("servicios", []))} servicios, {len(d.get("repuestos", []))} repuestos')
     d = request.json
+    agregados = {'servicios': 0, 'repuestos': 0}
+    ignorados = {'servicios': 0, 'repuestos': 0}
     errores = []
-    
+
+    # Importar servicios (solo los que no existen por nombre)
     if 'servicios' in d:
+        existentes = {s.nombre for s in Servicio.query.all()}
         for s in d['servicios']:
             try:
+                if s.get('nombre', '') in existentes:
+                    ignorados['servicios'] += 1
+                    continue
                 nuevo = Servicio(
                     nombre=s.get('nombre', ''),
                     categoria=s.get('categoria', ''),
@@ -252,12 +286,19 @@ def importar_datos():
                     horas_minimas=float(s.get('horas_minimas', 1))
                 )
                 db.session.add(nuevo)
-            except:
+                existentes.add(nuevo.nombre)
+                agregados['servicios'] += 1
+            except Exception as e:
                 errores.append(f"Error en servicio: {s.get('nombre')}")
-    
+
+    # Importar repuestos (solo los que no existen por nombre)
     if 'repuestos' in d:
+        existentes = {r.nombre for r in Repuesto.query.all()}
         for r in d['repuestos']:
             try:
+                if r.get('nombre', '') in existentes:
+                    ignorados['repuestos'] += 1
+                    continue
                 nuevo = Repuesto(
                     nombre=r.get('nombre', ''),
                     categoria=r.get('categoria', ''),
@@ -266,19 +307,113 @@ def importar_datos():
                     link=r.get('link', '')
                 )
                 db.session.add(nuevo)
-            except:
+                existentes.add(nuevo.nombre)
+                agregados['repuestos'] += 1
+            except Exception as e:
                 errores.append(f"Error en repuesto: {r.get('nombre')}")
-    
+
+    # Importar configuración (solo claves que no existen)
     if 'config' in d:
         for clave, valor in d['config'].items():
             c = Configuracion.query.filter_by(clave=clave).first()
-            if c:
-                c.valor = str(valor)
-            else:
+            if not c:
                 db.session.add(Configuracion(clave=clave, valor=str(valor)))
-    
+
+    # Importar presupuestos (solo los que no existen por nombre y fecha)
+    if 'presupuestos' in d and d.get('version', 1) >= 2:
+        existentes = {(p.nombre, p.fecha.isoformat()) for p in Presupuesto.query.all()}
+        for p in d['presupuestos']:
+            try:
+                fecha_p = datetime.fromisoformat(p.get('fecha', datetime.now().isoformat()))
+                if (p.get('nombre', ''), fecha_p.isoformat()) in existentes:
+                    ignorados['presupuestos'] = ignorados.get('presupuestos', 0) + 1
+                    continue
+                presupuesto = Presupuesto(
+                    fecha=fecha_p,
+                    nombre=p.get('nombre', ''),
+                    total=float(p.get('total', 0))
+                )
+                db.session.add(presupuesto)
+                db.session.flush()
+
+                for l in p.get('lineas', []):
+                    linea = PresupuestoLinea(
+                        presupuesto_id=presupuesto.id,
+                        tipo=l.get('tipo', ''),
+                        item_id=l.get('item_id'),
+                        item_nombre=l.get('item_nombre', ''),
+                        cantidad=float(l.get('cantidad', 1)),
+                        valor_unitario=float(l.get('valor_unitario', 0)),
+                        subtotal=float(l.get('subtotal', 0))
+                    )
+                    db.session.add(linea)
+
+                existentes.add((presupuesto.nombre, presupuesto.fecha.isoformat()))
+                agregados['presupuestos'] = agregados.get('presupuestos', 0) + 1
+            except Exception as e:
+                errores.append(f"Error en presupuesto: {p.get('nombre')}")
+
     db.session.commit()
-    return jsonify({'ok': True, 'errores': errores})
+    return jsonify({
+        'ok': True,
+        'agregados': agregados,
+        'ignorados': ignorados,
+        'errores': errores
+    })
+
+# --- Presupuestos ---
+
+@app.route('/api/presupuestos', methods=['GET'])
+def listar_presupuestos():
+    presupuestos = Presupuesto.query.order_by(Presupuesto.fecha.desc()).all()
+    return jsonify([p.to_dict() for p in presupuestos])
+
+@app.route('/api/presupuestos', methods=['POST'])
+def guardar_presupuesto():
+    d = request.json
+    nombre = d.get('nombre', f'Presupuesto {datetime.now().strftime("%d/%m %H:%M")}')
+    lineas = d.get('lineas', [])
+
+    presupuesto = Presupuesto(nombre=nombre, total=d.get('total', 0))
+    db.session.add(presupuesto)
+    db.session.flush()
+
+    for l in lineas:
+        linea = PresupuestoLinea(
+            presupuesto_id=presupuesto.id,
+            tipo=l.get('tipo', ''),
+            item_id=l.get('item_id'),
+            item_nombre=l.get('item_nombre', ''),
+            cantidad=float(l.get('cantidad', 1)),
+            valor_unitario=float(l.get('valor_unitario', 0)),
+            subtotal=float(l.get('subtotal', 0))
+        )
+        db.session.add(linea)
+
+    db.session.commit()
+    return jsonify({'ok': True, 'id': presupuesto.id})
+
+@app.route('/api/presupuestos/<int:pid>', methods=['DELETE'])
+def eliminar_presupuesto(pid):
+    presupuesto = Presupuesto.query.get_or_404(pid)
+    db.session.delete(presupuesto)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+# --- Export actualizado para incluir presupuestos ---
+
+@app.route('/api/exportar', methods=['GET'])
+def exportar_datos():
+    datos = {
+        'version': 2,
+        'fecha': datetime.now().isoformat(),
+        'servicios': [s.to_dict() for s in Servicio.query.all()],
+        'repuestos': [r.to_dict() for r in Repuesto.query.all()],
+        'presupuestos': [p.to_dict() for p in Presupuesto.query.all()],
+        'config': {c.clave: c.valor for c in Configuracion.query.all()}
+    }
+    app.logger.info(f'Exportando v2: {len(datos["servicios"])} servicios, {len(datos["repuestos"])} repuestos, {len(datos["presupuestos"])} presupuestos')
+    return jsonify(datos)
 
 # --- Calculadora ---
 
