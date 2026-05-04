@@ -1216,11 +1216,15 @@ function imprimirPresupuesto() {
     const subtotal = parseFloat(subtotalText.replace('$','').replace(/\./g,'').replace(',','.')) || 0;
 
     let precCol = '';
-    if (mostrarCostos && tipo === 'repuesto') {
-      const select = row.querySelector('.item-select');
-      const selectedOption = select?.options[select.selectedIndex];
-      const valorUnitario = parseFloat(selectedOption?.dataset.valor || selectedOption?.getAttribute('data-valor') || 0);
-      precCol = `<td class="prec-col">$${valorUnitario.toLocaleString('es-AR')}</td>`;
+    if (mostrarCostos) {
+      if (tipo === 'repuesto') {
+        const select = row.querySelector('.item-select');
+        const selectedOption = select?.options[select.selectedIndex];
+        const valorUnitario = parseFloat(selectedOption?.dataset.valor || selectedOption?.getAttribute('data-valor') || 0);
+        precCol = `<td class="prec-col">$${valorUnitario.toLocaleString('es-AR')}</td>`;
+      } else {
+        precCol = `<td class="prec-col">—</td>`;
+      }
     }
 
     html += `<tr>
