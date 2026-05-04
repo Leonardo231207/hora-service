@@ -1350,10 +1350,46 @@ async function exportarDatos() {
   }
 }
 
-// Función legacy (no usada ya)
-async function importarDatos(input) {
-  console.log('legacy importarDatos called');
-}
+// Importar datos desde archivo JSON
+document.getElementById('btn-importar').addEventListener('click', () => {
+  document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    try {
+      const datos = JSON.parse(event.target.result);
+      fetch('/api/importar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(datos)
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.errores && data.errores.length) {
+          toast('Importado con errores: ' + data.errores.join(', '), 'err');
+        } else {
+          toast('Datos importados correctamente');
+        }
+        cargarServiciosList();
+        cargarRepuestosList();
+        cargarConfig();
+        e.target.value = '';
+      })
+      .catch(err => {
+        console.error('Error importar:', err);
+        toast('Error al importar: ' + err.message, 'err');
+      });
+    } catch(err) {
+      toast('El archivo no es un JSON válido', 'err');
+    }
+  };
+  reader.readAsText(file);
+});
 </script>
 </body>
 </html>
