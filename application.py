@@ -142,6 +142,14 @@ def calcular_distancia_km(origen_coords, destino_coords):
     distancia_m = data['routes'][0]['distance']
     return round(distancia_m / 1000, 2)
 
+def parsear_float(valor):
+    """Convierte a float aceptando coma o punto como separador decimal."""
+    if valor is None or valor == '':
+        return 0.0
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    return float(str(valor).strip().replace(',', '.'))
+
 # ─── RUTAS API ─────────────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -190,8 +198,8 @@ def crear_servicio():
             nombre=d['nombre'],
             categoria=d['categoria'],
             descripcion=d.get('descripcion', ''),
-            valor_hora=float(d['valor_hora']),
-            horas_minimas=float(d.get('horas_minimas', 1.0))
+            valor_hora=parsear_float(d['valor_hora']),
+            horas_minimas=parsear_float(d.get('horas_minimas', 1.0))
         )
         db.session.add(s)
         db.session.commit()
@@ -209,8 +217,8 @@ def actualizar_servicio(sid):
     s.nombre = d.get('nombre', s.nombre)
     s.categoria = d.get('categoria', s.categoria)
     s.descripcion = d.get('descripcion', s.descripcion)
-    s.valor_hora = float(d.get('valor_hora', s.valor_hora))
-    s.horas_minimas = float(d.get('horas_minimas', s.horas_minimas))
+    s.valor_hora = parsear_float(d.get('valor_hora', s.valor_hora))
+    s.horas_minimas = parsear_float(d.get('horas_minimas', s.horas_minimas))
     db.session.commit()
     return jsonify(s.to_dict())
 
@@ -235,7 +243,7 @@ def crear_repuesto():
         nombre=d['nombre'],
         categoria=d['categoria'],
         descripcion=d.get('descripcion', ''),
-        precio=float(d['precio']),
+        precio=parsear_float(d['precio']),
         link=d.get('link', '')
     )
     db.session.add(r)
@@ -249,7 +257,7 @@ def actualizar_repuesto(rid):
     r.nombre = d.get('nombre', r.nombre)
     r.categoria = d.get('categoria', r.categoria)
     r.descripcion = d.get('descripcion', r.descripcion)
-    r.precio = float(d.get('precio', r.precio))
+    r.precio = parsear_float(d.get('precio', r.precio))
     r.link = d.get('link', r.link)
     db.session.commit()
     return jsonify(r.to_dict())
@@ -282,8 +290,8 @@ def importar_datos():
                     nombre=s.get('nombre', ''),
                     categoria=s.get('categoria', ''),
                     descripcion=s.get('descripcion', ''),
-                    valor_hora=float(s.get('valor_hora', 0)),
-                    horas_minimas=float(s.get('horas_minimas', 1))
+                    valor_hora=parsear_float(s.get('valor_hora', 0)),
+                    horas_minimas=parsear_float(s.get('horas_minimas', 1))
                 )
                 db.session.add(nuevo)
                 existentes.add(nuevo.nombre)
@@ -303,7 +311,7 @@ def importar_datos():
                     nombre=r.get('nombre', ''),
                     categoria=r.get('categoria', ''),
                     descripcion=r.get('descripcion', ''),
-                    precio=float(r.get('precio', 0)),
+                    precio=parsear_float(r.get('precio', 0)),
                     link=r.get('link', '')
                 )
                 db.session.add(nuevo)
@@ -331,7 +339,7 @@ def importar_datos():
                 presupuesto = Presupuesto(
                     fecha=fecha_p,
                     nombre=p.get('nombre', ''),
-                    total=float(p.get('total', 0))
+                    total=parsear_float(p.get('total', 0))
                 )
                 db.session.add(presupuesto)
                 db.session.flush()
@@ -342,9 +350,9 @@ def importar_datos():
                         tipo=l.get('tipo', ''),
                         item_id=l.get('item_id'),
                         item_nombre=l.get('item_nombre', ''),
-                        cantidad=float(l.get('cantidad', 1)),
-                        valor_unitario=float(l.get('valor_unitario', 0)),
-                        subtotal=float(l.get('subtotal', 0))
+                        cantidad=parsear_float(l.get('cantidad', 1)),
+                        valor_unitario=parsear_float(l.get('valor_unitario', 0)),
+                        subtotal=parsear_float(l.get('subtotal', 0))
                     )
                     db.session.add(linea)
 
@@ -384,9 +392,9 @@ def guardar_presupuesto():
             tipo=l.get('tipo', ''),
             item_id=l.get('item_id'),
             item_nombre=l.get('item_nombre', ''),
-            cantidad=float(l.get('cantidad', 1)),
-            valor_unitario=float(l.get('valor_unitario', 0)),
-            subtotal=float(l.get('subtotal', 0))
+            cantidad=parsear_float(l.get('cantidad', 1)),
+            valor_unitario=parsear_float(l.get('valor_unitario', 0)),
+            subtotal=parsear_float(l.get('subtotal', 0))
         )
         db.session.add(linea)
 
@@ -423,7 +431,7 @@ def calcular():
     d = request.json
     servicio_id = d.get('servicio_id')
     destino = d.get('destino', '').strip()
-    horas_extra = float(d.get('horas_extra', 0))
+    horas_extra = parsear_float(d.get('horas_extra', 0))
 
     if not servicio_id or not destino:
         return jsonify({'error': 'Faltan datos'}), 400
@@ -433,7 +441,7 @@ def calcular():
     # Obtener dirección base
     config = {c.clave: c.valor for c in Configuracion.query.all()}
     residencia = config.get('residencia', '')
-    recargo_por_km = float(config.get('recargo_por_km', 0))
+    recargo_por_km = parsear_float(config.get('recargo_por_km', 0))
 
     resultado = {
         'servicio': servicio.to_dict(),

@@ -595,11 +595,11 @@ select option { background: var(--surface); }
       <div class="row-2">
         <div class="field">
           <label>Valor por hora ($)</label>
-          <input type="number" id="s-valor-hora" placeholder="0" min="0">
+          <input type="text" id="s-valor-hora" placeholder="0" inputmode="decimal">
         </div>
         <div class="field">
           <label>Horas mínimas</label>
-          <input type="number" id="s-horas-min" placeholder="1" min="0.5" step="0.5" value="1">
+          <input type="text" id="s-horas-min" placeholder="1" value="1" inputmode="decimal">
         </div>
       </div>
 
@@ -638,7 +638,7 @@ select option { background: var(--surface); }
       <div class="row-2">
         <div class="field">
           <label>Precio ($)</label>
-          <input type="number" id="r-precio" placeholder="0" min="0">
+          <input type="text" id="r-precio" placeholder="0" inputmode="decimal">
         </div>
         <div class="field">
           <label>Link (opcional)</label>
@@ -690,7 +690,7 @@ select option { background: var(--surface); }
       </div>
       <div class="field">
         <label>Recargo por km ($)</label>
-        <input type="number" id="c-recargo-km" placeholder="0" min="0" step="100">
+        <input type="text" id="c-recargo-km" placeholder="0" inputmode="decimal">
       </div>
 
       <button class="btn btn-primary" onclick="guardarConfig()">Guardar configuración</button>
@@ -753,7 +753,7 @@ async function cargarConfig() {
 async function guardarConfig() {
   const payload = {
     residencia: document.getElementById('c-residencia').value.trim(),
-    recargo_por_km: document.getElementById('c-recargo-km').value || 0
+    recargo_por_km: document.getElementById('c-recargo-km').value.trim().replace(',', '.') || 0
   };
   await fetch('/api/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
   toast('Configuración guardada');
@@ -845,8 +845,8 @@ async function guardarServicio() {
     nombre: document.getElementById('s-nombre').value.trim(),
     categoria: document.getElementById('s-categoria').value.trim(),
     descripcion: document.getElementById('s-descripcion').value.trim(),
-    valor_hora: document.getElementById('s-valor-hora').value,
-    horas_minimas: document.getElementById('s-horas-min').value
+    valor_hora: document.getElementById('s-valor-hora').value.trim().replace(',', '.'),
+    horas_minimas: document.getElementById('s-horas-min').value.trim().replace(',', '.')
   };
   if (!payload.nombre || !payload.categoria || !payload.valor_hora) {
     toast('Completá nombre, categoría y valor/hora', 'err');
@@ -1401,7 +1401,7 @@ async function guardarRepuesto() {
     nombre: document.getElementById('r-nombre').value.trim(),
     categoria: document.getElementById('r-categoria').value.trim(),
     descripcion: document.getElementById('r-descripcion').value.trim(),
-    precio: document.getElementById('r-precio').value,
+    precio: document.getElementById('r-precio').value.trim().replace(',', '.'),
     link: document.getElementById('r-link').value.trim()
   };
   if (!payload.nombre || !payload.categoria || !payload.precio) {
@@ -1411,7 +1411,13 @@ async function guardarRepuesto() {
 
   const url = editandoRepuestoId ? `/api/repuestos/${editandoRepuestoId}` : '/api/repuestos';
   const method = editandoRepuestoId ? 'PUT' : 'POST';
-  await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    toast('Error: ' + (err.error || 'No se pudo guardar'), 'err');
+    return;
+  }
 
   toast(editandoRepuestoId ? 'Repuesto actualizado' : 'Repuesto creado');
   cancelarRepuesto();
